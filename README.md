@@ -1,36 +1,41 @@
-# Update-Watcher
+# 🔍 Update-Watcher
+
+[![CI](https://img.shields.io/github/actions/workflow/status/mahype/update-watcher/test.yaml?branch=main&style=for-the-badge&label=Tests)](https://github.com/mahype/update-watcher/actions)
+[![Release](https://img.shields.io/github/v/release/mahype/update-watcher?style=for-the-badge)](https://github.com/mahype/update-watcher/releases)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
+[![Go](https://img.shields.io/badge/Go-1.25-00ADD8?style=for-the-badge&logo=go&logoColor=white)]()
 
 A modular CLI tool that checks for available software updates and sends notifications. Designed to run on servers, scheduled via cron. Single binary, no runtime dependencies.
 
-## Features
+## ✨ Features
 
-### Checkers
+### 📦 Checkers
 
-- **APT** — Debian/Ubuntu package updates (with security-only filter)
-- **DNF** — Fedora/RHEL/Rocky/AlmaLinux package updates (with security classification)
-- **Pacman** — Arch/Manjaro package updates
-- **Zypper** — openSUSE/SLES package updates (with security patches)
-- **APK** — Alpine Linux package updates
-- **Docker** — Detects newer images for running containers (read-only, no image pulls)
-- **WordPress** — Core, plugin, and theme updates across 11 environments
+- 🐧 **APT** — Debian/Ubuntu package updates (with security-only filter)
+- 🎩 **DNF** — Fedora/RHEL/Rocky/AlmaLinux package updates (with security classification)
+- 👻 **Pacman** — Arch/Manjaro package updates
+- 🦎 **Zypper** — openSUSE/SLES package updates (with security patches)
+- 🏔️ **APK** — Alpine Linux package updates
+- 🐳 **Docker** — Detects newer images for running containers (read-only, no image pulls)
+- 📝 **WordPress** — Core, plugin, and theme updates across 11 environments
 
-### Notifiers
+### 🔔 Notifiers
 
-- **Slack** — Rich Block Kit messages with security highlighting
-- **Discord** — Embedded messages via webhooks
-- **Microsoft Teams** — Adaptive Card messages via Workflow webhooks
-- **Telegram** — Bot API messages with Markdown formatting
-- **Email** — HTML emails via SMTP (with STARTTLS)
-- **ntfy** — Push notifications via [ntfy.sh](https://ntfy.sh) or self-hosted
-- **Webhook** — JSON payloads to any HTTP endpoint
+- 💬 **Slack** — Rich Block Kit messages with security highlighting
+- 🎮 **Discord** — Embedded messages via webhooks
+- 🟦 **Microsoft Teams** — Adaptive Card messages via Workflow webhooks
+- ✈️ **Telegram** — Bot API messages with Markdown formatting
+- 📧 **Email** — HTML emails via SMTP (with STARTTLS)
+- 📲 **ntfy** — Push notifications via [ntfy.sh](https://ntfy.sh) or self-hosted
+- 🌐 **Webhook** — JSON payloads to any HTTP endpoint
 
-### Other
+### ⚙️ Other
 
-- **Cron scheduling** — Built-in cron job management
-- **Interactive setup** — Menu-driven wizard with auto-detection
-- **Multi-platform** — Linux (amd64, arm64, armv7), macOS (amd64, arm64)
+- 🕐 **Cron scheduling** — Built-in cron job management
+- 🧙 **Interactive setup** — Menu-driven wizard with auto-detection
+- 💻 **Multi-platform** — Linux (amd64, arm64, armv7), macOS (amd64, arm64)
 
-## Installation
+## 📥 Installation
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash
@@ -38,7 +43,7 @@ curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/i
 
 This detects your OS and architecture, downloads the latest release, and installs it to `/usr/local/bin`.
 
-## Quick Start
+## 🚀 Quick Start
 
 ```bash
 # Interactive setup wizard
@@ -51,7 +56,7 @@ update-watcher run --dry-run
 update-watcher install-cron
 ```
 
-## Commands
+## 📋 Commands
 
 | Command | Description |
 |---|---|
@@ -79,7 +84,7 @@ update-watcher install-cron
 | `--quiet, -q` | Suppress terminal output |
 | `--verbose, -v` | Enable debug logging |
 
-## WordPress Environments
+## 📝 WordPress Environments
 
 The WordPress checker auto-detects the development environment and uses the correct command to run WP-CLI. Supported environments:
 
@@ -103,7 +108,7 @@ Override auto-detection with `--env`:
 update-watcher watch wordpress --path /path/to/project --name "My Site" --env ddev
 ```
 
-## Configuration
+## 🔧 Configuration
 
 Config file location:
 - **Linux:** `/etc/update-watcher/config.yaml` (system-wide), `~/.config/update-watcher/config.yaml` (user)
@@ -251,7 +256,7 @@ settings:
 | `webhook` | `auth_header` | No | Authorization header value |
 | `webhook` | `headers` | No | Additional HTTP headers |
 
-## Setup Wizard
+## 🧙 Setup Wizard
 
 The `setup` command launches a menu-driven wizard that shows the current configuration and lets you add/remove watchers, configure notifiers, and manage settings.
 
@@ -275,7 +280,7 @@ What would you like to do?
   > Save & Exit
 ```
 
-## Exit Codes
+## 🚦 Exit Codes
 
 | Code | Meaning |
 |---|---|
@@ -285,7 +290,7 @@ What would you like to do?
 | 3 | Complete failure |
 | 4 | Configuration missing or invalid |
 
-## Build from Source
+## 🛠️ Build from Source
 
 ```bash
 git clone https://github.com/mahype/update-watcher.git
@@ -296,6 +301,6 @@ make install
 
 Requires Go 1.21+.
 
-## License
+## 📄 License
 
 MIT
