@@ -26,13 +26,35 @@ type composerOutdatedOutput struct {
 	Installed []composerPackage `json:"installed"`
 }
 
+// abandonedField handles Composer's "abandoned" field which can be either
+// a boolean (true) or a string ("use/other-package").
+type abandonedField string
+
+func (a *abandonedField) UnmarshalJSON(data []byte) error {
+	// Try string first
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*a = abandonedField(s)
+		return nil
+	}
+	// Try boolean (Composer returns true when abandoned without replacement)
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		if b {
+			*a = "yes"
+		}
+		return nil
+	}
+	return fmt.Errorf("abandoned field: expected string or bool, got %s", string(data))
+}
+
 type composerPackage struct {
-	Name         string `json:"name"`
-	Version      string `json:"version"`
-	Latest       string `json:"latest"`
-	LatestStatus string `json:"latest-status"`
-	Description  string `json:"description"`
-	Abandoned    string `json:"abandoned,omitempty"`
+	Name         string         `json:"name"`
+	Version      string         `json:"version"`
+	Latest       string         `json:"latest"`
+	LatestStatus string         `json:"latest-status"`
+	Description  string         `json:"description"`
+	Abandoned    abandonedField `json:"abandoned,omitempty"`
 }
 
 func (c *ComposerManager) CheckOutdated(project ProjectConfig) ([]checker.Update, error) {
@@ -62,7 +84,7 @@ func (c *ComposerManager) CheckOutdated(project ProjectConfig) ([]checker.Update
 		if pkg.LatestStatus == "semver-safe-update" {
 			priority = checker.PriorityLow
 		}
-		if pkg.Abandoned != "" {
+		if string(pkg.Abandoned) != "" {
 			priority = checker.PriorityHigh
 		}
 		updates = append(updates, checker.Update{

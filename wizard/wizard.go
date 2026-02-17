@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/huh"
+	"github.com/mahype/update-watcher/checker/webproject"
 	"github.com/mahype/update-watcher/checker/wordpress"
 	"github.com/mahype/update-watcher/config"
 	"github.com/mahype/update-watcher/cron"
@@ -188,6 +189,10 @@ func printStatus(cfg *config.Config) {
 				sites := w.GetMapSlice("sites")
 				label = fmt.Sprintf("wordpress (%d sites)", len(sites))
 			}
+			if w.Type == "webproject" {
+				projects := w.GetMapSlice("projects")
+				label = fmt.Sprintf("webproject (%d projects)", len(projects))
+			}
 			if !w.Enabled {
 				label += " [disabled]"
 			}
@@ -269,6 +274,17 @@ func manageWatchers(cfg *config.Config) error {
 					}
 					fmt.Printf("    [✓] WordPress: %q (%s, env: %s)\n", name, path, env)
 				}
+			case "webproject":
+				projects := w.GetMapSlice("projects")
+				for _, p := range projects {
+					name, _ := p["name"].(string)
+					path, _ := p["path"].(string)
+					env, _ := p["environment"].(string)
+					if env == "" || env == "auto" {
+						env = "native"
+					}
+					fmt.Printf("    [✓] Web Project: %q (%s, env: %s)\n", name, path, env)
+				}
 			}
 		}
 		fmt.Println()
@@ -298,6 +314,8 @@ func manageWatchers(cfg *config.Config) error {
 		}
 		// WordPress is always available (environment detection handles tool requirements).
 		options = append(options, huh.NewOption("Add WordPress site", "add-wordpress"))
+		// Web projects are always available.
+		options = append(options, huh.NewOption("Add Web Project", "add-webproject"))
 		if len(cfg.Watchers) > 0 {
 			options = append(options, huh.NewOption("Remove a watcher", "remove"))
 		}
@@ -333,6 +351,8 @@ func manageWatchers(cfg *config.Config) error {
 			addDockerWatcher(cfg)
 		case "add-wordpress":
 			addWordPressSite(cfg)
+		case "add-webproject":
+			addWebProject(cfg)
 		case "remove":
 			removeWatcher(cfg)
 		case "back":
@@ -695,6 +715,153 @@ func addWordPressSite(cfg *config.Config) {
 	fmt.Printf("  WordPress site %q added (env: %s).\n", siteName, selectedEnv.Label())
 }
 
+func addWebProject(cfg *config.Config) {
+	var projectName, projectPath string
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Project name").
+				Description("A human-readable name for this project").
+				Value(&projectName),
+			huh.NewInput().
+				Title("Project path").
+				Description("Full path to project root, e.g. /var/www/myapp or ~/Dev/Projects/myproject").
+				Value(&projectPath),
+		),
+	).Run()
+	if err != nil || projectPath == "" {
+		fmt.Println("  Skipped (path is required).")
+		return
+	}
+
+	if projectName == "" {
+		projectName = projectPath
+	}
+
+	// Auto-detect environment
+	detectedEnv := webproject.DetectEnvironment(projectPath)
+	envStr := string(detectedEnv)
+
+	fmt.Printf("\n  Detected environment: %s (%s)\n", detectedEnv.Label(), webproject.EnvironmentDescription(detectedEnv))
+
+	// Let user confirm or change the environment
+	envOptions := []huh.Option[string]{
+		huh.NewOption(fmt.Sprintf("%s (detected)", detectedEnv.Label()), string(detectedEnv)),
+	}
+	for _, e := range webproject.AllEnvironments {
+		if e != detectedEnv {
+			envOptions = append(envOptions, huh.NewOption(e.Label(), string(e)))
+		}
+	}
+
+	err = huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Environment").
+				Description("How package manager commands should be invoked").
+				Options(envOptions...).
+				Value(&envStr),
+		),
+	).Run()
+	if err != nil {
+		fmt.Println("  Cancelled.")
+		return
+	}
+
+	selectedEnv := webproject.Environment(envStr)
+
+	// Auto-detect package managers
+	detected := webproject.DetectManagers(projectPath)
+	var managerNames []string
+	for _, m := range detected {
+		managerNames = append(managerNames, m.Name())
+	}
+	if len(managerNames) > 0 {
+		fmt.Printf("  Detected package managers: %s\n", strings.Join(managerNames, ", "))
+	} else {
+		fmt.Println("  No package managers detected (will be auto-detected at runtime).")
+	}
+
+	// Security audit option
+	checkAudit := true
+	huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Run security audits?").
+				Description("Check for known vulnerabilities (npm audit, composer audit, etc.)").
+				Value(&checkAudit),
+		),
+	).Run()
+
+	project := map[string]interface{}{
+		"name":        projectName,
+		"path":        projectPath,
+		"environment": envStr,
+		"check_audit": checkAudit,
+	}
+
+	if len(managerNames) > 0 {
+		mgrs := make([]interface{}, len(managerNames))
+		for i, m := range managerNames {
+			mgrs[i] = m
+		}
+		project["managers"] = mgrs
+	}
+
+	// Only ask for run_as if the environment needs it (native)
+	if selectedEnv.NeedsRunAs() {
+		runAs := ""
+		err = huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Run as user").
+					Description("OS user for sudo -u (leave empty to skip)").
+					Value(&runAs),
+			),
+		).Run()
+		if err == nil && runAs != "" {
+			project["run_as"] = runAs
+		}
+	}
+
+	// Find existing webproject watcher or create new one
+	var found bool
+	for i, w := range cfg.Watchers {
+		if w.Type == "webproject" {
+			projects := w.GetMapSlice("projects")
+			projects = append(projects, project)
+			projectsIface := make([]interface{}, len(projects))
+			for j, p := range projects {
+				projectsIface[j] = p
+			}
+			if cfg.Watchers[i].Options == nil {
+				cfg.Watchers[i].Options = make(map[string]interface{})
+			}
+			cfg.Watchers[i].Options["projects"] = projectsIface
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		cfg.AddWatcher(config.WatcherConfig{
+			Type:    "webproject",
+			Enabled: true,
+			Options: map[string]interface{}{
+				"check_audit": checkAudit,
+				"projects":    []interface{}{project},
+			},
+		})
+	}
+
+	fmt.Printf("  Web project %q added (env: %s", projectName, selectedEnv.Label())
+	if len(managerNames) > 0 {
+		fmt.Printf(", managers: %s", strings.Join(managerNames, ", "))
+	}
+	fmt.Println(").")
+}
+
 func removeWatcher(cfg *config.Config) {
 	if len(cfg.Watchers) == 0 {
 		return
@@ -714,6 +881,20 @@ func removeWatcher(cfg *config.Config) {
 				}
 				label := fmt.Sprintf("WordPress: %q (%s, env: %s)", name, path, env)
 				value := fmt.Sprintf("wp:%d:%d", i, j)
+				options = append(options, huh.NewOption(label, value))
+			}
+		} else if w.Type == "webproject" {
+			// Show one option per web project for individual removal.
+			projects := w.GetMapSlice("projects")
+			for j, p := range projects {
+				name, _ := p["name"].(string)
+				path, _ := p["path"].(string)
+				env, _ := p["environment"].(string)
+				if env == "" || env == "auto" {
+					env = "native"
+				}
+				label := fmt.Sprintf("Web Project: %q (%s, env: %s)", name, path, env)
+				value := fmt.Sprintf("webproj:%d:%d", i, j)
 				options = append(options, huh.NewOption(label, value))
 			}
 		} else {
@@ -779,8 +960,36 @@ func removeWatcher(cfg *config.Config) {
 			w.Options["sites"] = remaining
 			fmt.Printf("  WordPress site %q removed.\n", removedName)
 		}
+	} else if strings.HasPrefix(choice, "webproj:") {
+		// Web project removal: parse "webproj:<watcherIdx>:<projectIdx>"
+		var watcherIdx, projectIdx int
+		fmt.Sscanf(choice, "webproj:%d:%d", &watcherIdx, &projectIdx)
+		if watcherIdx < 0 || watcherIdx >= len(cfg.Watchers) {
+			return
+		}
+		w := &cfg.Watchers[watcherIdx]
+		projects := w.GetMapSlice("projects")
+		if projectIdx < 0 || projectIdx >= len(projects) {
+			return
+		}
+
+		removedName, _ := projects[projectIdx]["name"].(string)
+
+		if len(projects) == 1 {
+			cfg.Watchers = append(cfg.Watchers[:watcherIdx], cfg.Watchers[watcherIdx+1:]...)
+			fmt.Printf("  Web project %q removed (watcher removed, no projects remaining).\n", removedName)
+		} else {
+			remaining := make([]interface{}, 0, len(projects)-1)
+			for k, p := range projects {
+				if k != projectIdx {
+					remaining = append(remaining, p)
+				}
+			}
+			w.Options["projects"] = remaining
+			fmt.Printf("  Web project %q removed.\n", removedName)
+		}
 	} else if strings.HasPrefix(choice, "idx:") {
-		// Non-WordPress watcher removal: parse "idx:<watcherIdx>"
+		// Non-WordPress/webproject watcher removal: parse "idx:<watcherIdx>"
 		var idx int
 		fmt.Sscanf(choice, "idx:%d", &idx)
 		if idx >= 0 && idx < len(cfg.Watchers) {
