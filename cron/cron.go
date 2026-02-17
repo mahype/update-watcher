@@ -87,13 +87,13 @@ func IsInstalled() (bool, string) {
 }
 
 func readCrontab() (string, error) {
-	out, err := exec.Command("crontab", "-l").Output()
+	out, err := exec.Command("crontab", "-l").CombinedOutput()
 	if err != nil {
 		outStr := string(out)
 		if strings.Contains(outStr, "no crontab") {
 			return "", nil
 		}
-		return "", fmt.Errorf("failed to read crontab: %w", err)
+		return "", fmt.Errorf("failed to read crontab: %w (output: %s)", err, outStr)
 	}
 	return string(out), nil
 }
