@@ -119,6 +119,8 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 			switch t {
 			case "apt", "dnf", "apk":
 				t = strings.ToUpper(t)
+			case "macos":
+				t = "macOS"
 			default:
 				t = strings.ToUpper(t[:1]) + t[1:]
 			}
@@ -250,6 +252,9 @@ func manageWatchers(cfg *config.Config) error {
 				fmt.Printf("    [✓] Zypper (%s, security_only: %v)\n", status, secOnly)
 			case "apk":
 				fmt.Printf("    [✓] APK (%s)\n", status)
+			case "macos":
+				secOnly := w.GetBool("security_only", false)
+				fmt.Printf("    [✓] macOS (%s, security_only: %v)\n", status, secOnly)
 			case "docker":
 				containers := w.GetString("containers", "all")
 				fmt.Printf("    [✓] Docker (%s, containers: %s)\n", status, containers)
@@ -285,6 +290,9 @@ func manageWatchers(cfg *config.Config) error {
 		if runtime.GOOS == "linux" && isToolAvailable("apk") {
 			options = append(options, huh.NewOption("Add APK watcher", "add-apk"))
 		}
+		if runtime.GOOS == "darwin" && isToolAvailable("softwareupdate") {
+			options = append(options, huh.NewOption("Add macOS watcher", "add-macos"))
+		}
 		if isToolAvailable("docker") {
 			options = append(options, huh.NewOption("Add Docker watcher", "add-docker"))
 		}
@@ -319,6 +327,8 @@ func manageWatchers(cfg *config.Config) error {
 			addZypperWatcher(cfg)
 		case "add-apk":
 			addApkWatcher(cfg)
+		case "add-macos":
+			addMacOSWatcher(cfg)
 		case "add-docker":
 			addDockerWatcher(cfg)
 		case "add-wordpress":
@@ -492,6 +502,35 @@ func addApkWatcher(cfg *config.Config) {
 		},
 	})
 	fmt.Println("  APK watcher configured.")
+}
+
+func addMacOSWatcher(cfg *config.Config) {
+	securityOnly := false
+
+	// Pre-fill from existing
+	for _, w := range cfg.Watchers {
+		if w.Type == "macos" {
+			securityOnly = w.GetBool("security_only", false)
+			break
+		}
+	}
+
+	huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Only report security updates?").
+				Value(&securityOnly),
+		),
+	).Run()
+
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "macos",
+		Enabled: true,
+		Options: map[string]interface{}{
+			"security_only": securityOnly,
+		},
+	})
+	fmt.Println("  macOS watcher configured.")
 }
 
 func addDockerWatcher(cfg *config.Config) {
@@ -680,9 +719,12 @@ func removeWatcher(cfg *config.Config) {
 		} else {
 			// Non-WordPress watchers: one option to remove the whole watcher.
 			label := w.Type
-			if w.Type == "apt" {
+			switch w.Type {
+			case "apt":
 				label = "APT"
-			} else {
+			case "macos":
+				label = "macOS"
+			default:
 				label = strings.ToUpper(label[:1]) + label[1:]
 			}
 			options = append(options, huh.NewOption(label, fmt.Sprintf("idx:%d", i)))

@@ -30,7 +30,7 @@ func Validate(cfg *Config) error {
 		ve.add("no watchers configured")
 	}
 
-	validTypes := map[string]bool{"apt": true, "dnf": true, "pacman": true, "zypper": true, "apk": true, "docker": true, "wordpress": true}
+	validTypes := map[string]bool{"apt": true, "dnf": true, "pacman": true, "zypper": true, "apk": true, "docker": true, "wordpress": true, "webproject": true, "macos": true}
 	for i, w := range cfg.Watchers {
 		if !validTypes[w.Type] {
 			ve.add(fmt.Sprintf("watcher[%d]: unknown type %q", i, w.Type))
@@ -43,6 +43,17 @@ func Validate(cfg *Config) error {
 			for j, site := range sites {
 				if _, ok := site["path"]; !ok {
 					ve.add(fmt.Sprintf("watcher[%d] (wordpress) site[%d]: missing path", i, j))
+				}
+			}
+		}
+		if w.Type == "webproject" {
+			projects := w.GetMapSlice("projects")
+			if len(projects) == 0 {
+				ve.add(fmt.Sprintf("watcher[%d] (webproject): no projects configured", i))
+			}
+			for j, project := range projects {
+				if _, ok := project["path"]; !ok {
+					ve.add(fmt.Sprintf("watcher[%d] (webproject) project[%d]: missing path", i, j))
 				}
 			}
 		}

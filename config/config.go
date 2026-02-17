@@ -182,7 +182,7 @@ func ConfigPath() string {
 // AddWatcher adds a watcher to the config. If a watcher of the same type
 // already exists, it will be replaced (except for WordPress, which supports multiple).
 func (c *Config) AddWatcher(watcher WatcherConfig) {
-	if watcher.Type != "wordpress" {
+	if watcher.Type != "wordpress" && watcher.Type != "webproject" {
 		for i, w := range c.Watchers {
 			if w.Type == watcher.Type {
 				c.Watchers[i] = watcher
@@ -193,35 +193,43 @@ func (c *Config) AddWatcher(watcher WatcherConfig) {
 	c.Watchers = append(c.Watchers, watcher)
 }
 
-// RemoveWatcher removes a watcher by type. For WordPress, an optional name
-// parameter can target a specific site (removing only that site, not the
-// entire watcher). If name is empty, the entire WordPress watcher is removed.
+// RemoveWatcher removes a watcher by type. For WordPress and webproject, an
+// optional name parameter can target a specific site/project (removing only
+// that entry, not the entire watcher). If name is empty, the entire watcher
+// is removed.
 func (c *Config) RemoveWatcher(watcherType string, name string) bool {
 	for i, w := range c.Watchers {
 		if w.Type != watcherType {
 			continue
 		}
-		if watcherType == "wordpress" && name != "" {
-			sites := w.GetMapSlice("sites")
-			for j, site := range sites {
-				if siteName, ok := site["name"].(string); ok && siteName == name {
-					// Remove just this site from the sites slice.
-					remaining := make([]interface{}, 0, len(sites)-1)
-					for k, s := range sites {
-						if k != j {
-							remaining = append(remaining, s)
-						}
-					}
-					if len(remaining) == 0 {
-						// Last site removed — remove the entire WordPress watcher.
-						c.Watchers = append(c.Watchers[:i], c.Watchers[i+1:]...)
-					} else {
-						c.Watchers[i].Options["sites"] = remaining
-					}
-					return true
-				}
+		if name != "" {
+			var listKey string
+			switch watcherType {
+			case "wordpress":
+				listKey = "sites"
+			case "webproject":
+				listKey = "projects"
 			}
-			continue
+			if listKey != "" {
+				items := w.GetMapSlice(listKey)
+				for j, item := range items {
+					if itemName, ok := item["name"].(string); ok && itemName == name {
+						remaining := make([]interface{}, 0, len(items)-1)
+						for k, s := range items {
+							if k != j {
+								remaining = append(remaining, s)
+							}
+						}
+						if len(remaining) == 0 {
+							c.Watchers = append(c.Watchers[:i], c.Watchers[i+1:]...)
+						} else {
+							c.Watchers[i].Options[listKey] = remaining
+						}
+						return true
+					}
+				}
+				continue
+			}
 		}
 		c.Watchers = append(c.Watchers[:i], c.Watchers[i+1:]...)
 		return true

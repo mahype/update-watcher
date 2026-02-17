@@ -33,6 +33,10 @@ func PrintStatus(cfg *config.Config, cronInstalled bool, cronSchedule string) {
 			sites := w.GetMapSlice("sites")
 			detail = fmt.Sprintf(" (%d sites)", len(sites))
 		}
+		if w.Type == "webproject" {
+			projects := w.GetMapSlice("projects")
+			detail = fmt.Sprintf(" (%d projects)", len(projects))
+		}
 		if w.Type == "docker" {
 			containers := w.GetString("containers", "all")
 			detail = fmt.Sprintf(" (containers: %s)", containers)

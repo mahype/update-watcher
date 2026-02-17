@@ -115,10 +115,14 @@ func writeUpdatesTable(b *strings.Builder, r *checker.CheckResult) {
 		b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(u.CurrentVersion)))
 		b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(u.NewVersion)))
 
+		typeDisplay := u.Type
+		if u.Phasing != "" {
+			typeDisplay += fmt.Sprintf(" (phased %s)", u.Phasing)
+		}
 		if u.Type == checker.UpdateTypeSecurity {
-			b.WriteString(fmt.Sprintf(`<td><span class="type-badge">⚠️ %s</span></td>`, html.EscapeString(u.Type)))
+			b.WriteString(fmt.Sprintf(`<td><span class="type-badge">⚠️ %s</span></td>`, html.EscapeString(typeDisplay)))
 		} else {
-			b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(u.Type)))
+			b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(typeDisplay)))
 		}
 		b.WriteString("</tr>\n")
 	}

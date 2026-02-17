@@ -43,6 +43,7 @@ type Update struct {
 	Type           string `json:"type"`
 	Priority       string `json:"priority"`
 	Source         string `json:"source,omitempty"`
+	Phasing        string `json:"phasing,omitempty"`
 }
 
 // Update type constants.

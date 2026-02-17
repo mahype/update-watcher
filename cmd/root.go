@@ -14,7 +14,7 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "update-watcher",
 	Short: "Monitor servers for available updates",
-	Long:  "A modular tool that checks for APT, Docker, and WordPress updates and sends notifications via Slack.",
+	Long:  "A modular tool that checks for system and application updates (APT, DNF, Pacman, Zypper, APK, Docker, WordPress, macOS) and sends notifications.",
 }
 
 // Execute runs the root command.

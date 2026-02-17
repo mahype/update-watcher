@@ -40,17 +40,22 @@ func printCheckerResult(r *checker.CheckResult) {
 
 	if r.CheckerName == "wordpress" {
 		printWordPressUpdates(r.Updates)
+	} else if r.CheckerName == "webproject" {
+		printWebProjectUpdates(r.Updates)
 	} else {
 		for _, u := range r.Updates {
 			marker := " "
 			if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
 				marker = "!"
 			}
+			suffix := ""
 			if u.Type == checker.UpdateTypeSecurity {
-				fmt.Printf("  [%s] %-30s %s -> %s  [SECURITY]\n", marker, u.Name, u.CurrentVersion, u.NewVersion)
-			} else {
-				fmt.Printf("  [%s] %-30s %s -> %s\n", marker, u.Name, u.CurrentVersion, u.NewVersion)
+				suffix += "  [SECURITY]"
 			}
+			if u.Phasing != "" {
+				suffix += fmt.Sprintf("  [phased %s]", u.Phasing)
+			}
+			fmt.Printf("  [%s] %-30s %s -> %s%s\n", marker, u.Name, u.CurrentVersion, u.NewVersion, suffix)
 		}
 	}
 
@@ -83,14 +88,74 @@ func printWordPressUpdates(updates []checker.Update) {
 	}
 }
 
+func printWebProjectUpdates(updates []checker.Update) {
+	// Group by project (first part of Source before "/") then by manager
+	type projectGroup struct {
+		managers map[string][]checker.Update
+		order    []string
+	}
+	projects := make(map[string]*projectGroup)
+	var projectOrder []string
+
+	for _, u := range updates {
+		projectName, managerName := splitSource(u.Source)
+		if _, exists := projects[projectName]; !exists {
+			projects[projectName] = &projectGroup{
+				managers: make(map[string][]checker.Update),
+			}
+			projectOrder = append(projectOrder, projectName)
+		}
+		pg := projects[projectName]
+		if _, exists := pg.managers[managerName]; !exists {
+			pg.order = append(pg.order, managerName)
+		}
+		pg.managers[managerName] = append(pg.managers[managerName], u)
+	}
+
+	for _, projectName := range projectOrder {
+		pg := projects[projectName]
+		fmt.Printf("  %s:\n", projectName)
+		for _, managerName := range pg.order {
+			fmt.Printf("    %s:\n", managerName)
+			for _, u := range pg.managers[managerName] {
+				marker := " "
+				if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
+					marker = "!"
+				}
+				suffix := ""
+				if u.Type == checker.UpdateTypeSecurity {
+					suffix = "  [SECURITY]"
+				}
+				if u.CurrentVersion != "" && u.NewVersion != "" {
+					fmt.Printf("      [%s] %-30s %s -> %s%s\n", marker, u.Name, u.CurrentVersion, u.NewVersion, suffix)
+				} else {
+					fmt.Printf("      [%s] %-30s%s\n", marker, u.Name, suffix)
+				}
+			}
+		}
+	}
+}
+
+func splitSource(source string) (string, string) {
+	parts := strings.SplitN(source, "/", 2)
+	if len(parts) == 2 {
+		return parts[0], parts[1]
+	}
+	return source, ""
+}
+
 func checkerIcon(name string) string {
 	switch name {
 	case "apt":
 		return "[APT]"
+	case "macos":
+		return "[MAC]"
 	case "docker":
 		return "[DCK]"
 	case "wordpress":
 		return "[WP]"
+	case "webproject":
+		return "[WEB]"
 	default:
 		return "[???]"
 	}

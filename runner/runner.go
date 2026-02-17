@@ -10,7 +10,9 @@ import (
 	_ "github.com/mahype/update-watcher/checker/apt"
 	_ "github.com/mahype/update-watcher/checker/dnf"
 	_ "github.com/mahype/update-watcher/checker/docker"
+	_ "github.com/mahype/update-watcher/checker/macos"
 	_ "github.com/mahype/update-watcher/checker/pacman"
+	_ "github.com/mahype/update-watcher/checker/webproject"
 	_ "github.com/mahype/update-watcher/checker/wordpress"
 	_ "github.com/mahype/update-watcher/checker/zypper"
 

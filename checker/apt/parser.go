@@ -9,8 +9,9 @@ import (
 
 // upgradable line format:
 // libssl3/jammy-security 3.0.13-0ubuntu3.4 amd64 [upgradable from: 3.0.13-0ubuntu3.1]
+// curl/jammy-updates 8.5.0-6 amd64 [upgradable from: 8.5.0-2] [phased 50%]
 var upgradableRe = regexp.MustCompile(
-	`^(\S+)/(\S+)\s+(\S+)\s+\S+\s+\[upgradable from:\s+(\S+)\]`,
+	`^(\S+)/(\S+)\s+(\S+)\s+\S+\s+\[upgradable from:\s+(\S+)\](?:\s+\[phased\s+(\d+%)\])?`,
 )
 
 // parseUpgradable parses the output of "apt list --upgradable" into Updates.
@@ -46,12 +47,18 @@ func parseUpgradable(output string, securityOnly bool) []checker.Update {
 			priority = checker.PriorityHigh
 		}
 
+		var phasing string
+		if len(matches) > 5 && matches[5] != "" {
+			phasing = matches[5]
+		}
+
 		updates = append(updates, checker.Update{
 			Name:           pkgName,
 			CurrentVersion: currentVersion,
 			NewVersion:     newVersion,
 			Type:           updateType,
 			Priority:       priority,
+			Phasing:        phasing,
 		})
 	}
 

@@ -11,13 +11,15 @@ A modular CLI tool that checks for available software updates and sends notifica
 
 ### 📦 Checkers
 
-- 🐧 **APT** — Debian/Ubuntu package updates (with security-only filter)
+- 🐧 **APT** — Debian/Ubuntu package updates (with security-only filter and phased rollout detection)
 - 🎩 **DNF** — Fedora/RHEL/Rocky/AlmaLinux package updates (with security classification)
 - 👻 **Pacman** — Arch/Manjaro package updates
 - 🦎 **Zypper** — openSUSE/SLES package updates (with security patches)
 - 🏔️ **APK** — Alpine Linux package updates
+- 🍎 **macOS** — macOS software updates via `softwareupdate` (with security-only filter)
 - 🐳 **Docker** — Detects newer images for running containers (read-only, no image pulls)
 - 📝 **WordPress** — Core, plugin, and theme updates across 11 environments
+- 📦 **Web Projects** — Outdated packages and security audits for npm, yarn, pnpm, and Composer
 
 ### 🔔 Notifiers
 
@@ -69,7 +71,9 @@ update-watcher install-cron
 | `watch pacman [--no-sudo]` | Add Pacman watcher |
 | `watch zypper [--security-only] [--no-sudo]` | Add Zypper watcher |
 | `watch apk [--no-sudo]` | Add APK watcher |
+| `watch macos [--security-only]` | Add macOS software update watcher |
 | `watch docker` | Add Docker watcher |
+| `watch webproject --path PATH [--name NAME] [--env TYPE]` | Add web project watcher |
 | `watch wordpress --path PATH [--name NAME] [--env TYPE]` | Add WordPress watcher |
 | `unwatch <type> [--name NAME]` | Remove a watcher |
 | `install-cron [--time HH:MM]` | Schedule daily cron job |
@@ -108,6 +112,46 @@ Override auto-detection with `--env`:
 update-watcher watch wordpress --path /path/to/project --name "My Site" --env ddev
 ```
 
+## 📦 Web Project Environments
+
+The web project checker auto-detects the package managers used in a project and the development environment. It supports multiple projects, each potentially using multiple package managers (e.g., a PHP project with both Composer and npm).
+
+### Supported Package Managers
+
+| Manager | Detection | Outdated Command | Security Audit |
+|---|---|---|---|
+| **npm** | `package-lock.json` | `npm outdated --json` | `npm audit --json` |
+| **yarn** | `yarn.lock` | `yarn outdated --json` (v1) / plugin (v2+) | `yarn audit --json` |
+| **pnpm** | `pnpm-lock.yaml` | `pnpm outdated --format json` | `pnpm audit --json` |
+| **Composer** | `composer.json` | `composer outdated --format=json --direct` | `composer audit --format=json` |
+
+When multiple Node.js lock files exist, the manager is chosen by priority: pnpm > yarn > npm. Non-Node managers (Composer) are always included alongside a Node.js manager.
+
+### Supported Environments
+
+| Environment | Command Prefix | Auto-detection |
+|---|---|---|
+| **Native** (default) | direct execution | No container markers found |
+| **ddev** | `ddev exec <tool>` | `.ddev/config.yaml` |
+| **Lando** | `lando ssh -c "<tool>"` | `.lando.yml` |
+| **Docker Compose** | `docker compose exec app <tool>` | `docker-compose.yml` / `compose.yml` |
+
+### Usage
+
+```bash
+# Auto-detect everything
+update-watcher watch webproject --path /var/www/myapp --name "My App"
+
+# Explicit package managers
+update-watcher watch webproject --path /var/www/myapp --name "My App" --managers composer,npm
+
+# Skip security audits
+update-watcher watch webproject --path /var/www/myapp --name "My App" --no-audit
+
+# Specify environment
+update-watcher watch webproject --path /var/www/myapp --name "My App" --env ddev
+```
+
 ## 🔧 Configuration
 
 Config file location:
@@ -126,6 +170,11 @@ watchers:
     enabled: true
     options:
       use_sudo: true
+      security_only: false
+
+  - type: macos
+    enabled: true
+    options:
       security_only: false
 
   - type: docker
@@ -148,6 +197,21 @@ watchers:
       check_core: true
       check_plugins: true
       check_themes: true
+
+  - type: webproject
+    enabled: true
+    options:
+      check_audit: true
+      projects:
+        - name: "Laravel App"
+          path: "/var/www/myapp"
+          environment: "ddev"
+          managers:
+            - composer
+            - npm
+        - name: "React Frontend"
+          path: "/var/www/frontend"
+          # auto-detect managers and environment
 
 notifiers:
   - type: slack
@@ -217,12 +281,15 @@ settings:
 | `zypper` | `use_sudo` | `true` | Use sudo for zypper operations |
 | `zypper` | `security_only` | `false` | Only report security updates |
 | `apk` | `use_sudo` | `false` | Use sudo for apk operations |
+| `macos` | `security_only` | `false` | Only report security updates |
 | `docker` | `containers` | `"all"` | `"all"` or comma-separated names |
 | `docker` | `exclude` | `[]` | Container names to skip |
 | `wordpress` | `sites` | `[]` | List of site objects (name, path, run_as, environment) |
 | `wordpress` | `check_core` | `true` | Check WordPress core updates |
 | `wordpress` | `check_plugins` | `true` | Check plugin updates |
 | `wordpress` | `check_themes` | `true` | Check theme updates |
+| `webproject` | `projects` | `[]` | List of project objects (name, path, environment, managers, run_as) |
+| `webproject` | `check_audit` | `true` | Run security audits (npm audit, composer audit, etc.) |
 
 ### Notifier Options
 

@@ -157,6 +157,9 @@ func formatUpdatesHTML(r *checker.CheckResult) string {
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", html.EscapeString(u.Source))
 		}
+		if u.Phasing != "" {
+			line += fmt.Sprintf(" <i>(phased %s)</i>", html.EscapeString(u.Phasing))
+		}
 		lines = append(lines, line)
 	}
 

@@ -222,6 +222,32 @@ func TestFormatUpdatesPlainTextNoTruncation(t *testing.T) {
 	}
 }
 
+func TestFormatUpdatesMarkdownPhasing(t *testing.T) {
+	r := &checker.CheckResult{
+		CheckerName: "apt",
+		Updates: []checker.Update{
+			{Name: "git", CurrentVersion: "2.43.0-1", NewVersion: "2.43.0-2", Type: checker.UpdateTypeRegular, Priority: checker.PriorityNormal, Phasing: "50%"},
+			{Name: "curl", CurrentVersion: "8.5.0-2", NewVersion: "8.5.0-6", Type: checker.UpdateTypeRegular, Priority: checker.PriorityNormal},
+		},
+	}
+
+	md := FormatUpdatesMarkdown(r, true)
+	if !strings.Contains(md, "_(phased 50%)_") {
+		t.Error("markdown should contain phasing info for git")
+	}
+	if strings.Count(md, "phased") != 1 {
+		t.Error("only git should have phasing info, not curl")
+	}
+
+	plain := FormatUpdatesPlainText(r)
+	if !strings.Contains(plain, "[phased 50%]") {
+		t.Error("plaintext should contain phasing info for git")
+	}
+	if strings.Count(plain, "phased") != 1 {
+		t.Error("only git should have phasing info, not curl")
+	}
+}
+
 func TestFormatUpdatesMarkdownWordPress(t *testing.T) {
 	r := &checker.CheckResult{
 		CheckerName: "wordpress",

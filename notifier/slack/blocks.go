@@ -80,6 +80,9 @@ func formatUpdates(r *checker.CheckResult, useEmoji bool) string {
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
+		if u.Phasing != "" {
+			line += fmt.Sprintf(" _(phased %s)_", u.Phasing)
+		}
 		lines = append(lines, line)
 	}
 

@@ -125,6 +125,9 @@ func formatUpdatesTeams(r *checker.CheckResult) string {
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
+		if u.Phasing != "" {
+			line += fmt.Sprintf(" *(phased %s)*", u.Phasing)
+		}
 		lines = append(lines, line)
 	}
 
