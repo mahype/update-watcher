@@ -70,7 +70,11 @@ func BuildEmbeds(hostname string, results []*checker.CheckResult) []Embed {
 
 		updates := formatUpdatesDiscord(r)
 		if updates != "" {
-			value += "\n" + updates
+			value += "\n\n" + updates
+		}
+
+		if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+			value += fmt.Sprintf("\n\n\U0001f4a1 Update: `%s`", cmd)
 		}
 
 		// Discord field value limit is 1024 chars

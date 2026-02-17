@@ -42,8 +42,10 @@ func CheckerEmoji(name string, useEmoji bool) string {
 		return "\U0001f433" // 🐳
 	case "wordpress":
 		return "\U0001f4dd" // 📝
-	case "webproject":
+	case "webproject", "snap", "flatpak":
 		return "\U0001f4e6" // 📦
+	case "homebrew":
+		return "\U0001f37a" // 🍺
 	default:
 		return "\U0001f504" // 🔄
 	}
@@ -72,6 +74,37 @@ func CheckerDisplayName(name string) string {
 		return "Web Project Updates"
 	default:
 		return name + " Updates"
+	}
+}
+
+// UpdateCommand returns the shell command to apply updates for a given checker.
+// Returns empty string if no single command is applicable.
+func UpdateCommand(checkerName string) string {
+	switch checkerName {
+	case "apt":
+		return "sudo apt upgrade"
+	case "dnf":
+		return "sudo dnf upgrade"
+	case "pacman":
+		return "sudo pacman -Syu"
+	case "zypper":
+		return "sudo zypper update"
+	case "apk":
+		return "sudo apk upgrade"
+	case "macos":
+		return "softwareupdate -i -a"
+	case "homebrew":
+		return "brew upgrade"
+	case "snap":
+		return "sudo snap refresh"
+	case "flatpak":
+		return "flatpak update"
+	case "docker":
+		return "docker pull <image>"
+	case "wordpress":
+		return "wp plugin update --all && wp theme update --all && wp core update"
+	default:
+		return ""
 	}
 }
 

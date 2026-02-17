@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/mahype/update-watcher/checker"
+	"github.com/mahype/update-watcher/notifier/formatting"
 )
 
 // PrintResults prints check results to the terminal.
@@ -21,7 +22,7 @@ func PrintResults(results []*checker.CheckResult, errors []error) {
 	}
 
 	if len(errors) > 0 {
-		fmt.Printf("\n--- Errors ---\n")
+		fmt.Printf("\n\n--- Errors ---\n")
 		for _, err := range errors {
 			fmt.Printf("  ! %s\n", err)
 		}
@@ -32,10 +33,10 @@ func PrintResults(results []*checker.CheckResult, errors []error) {
 
 func printCheckerResult(r *checker.CheckResult) {
 	icon := checkerIcon(r.CheckerName)
-	fmt.Printf("%s %s — %s\n", icon, strings.ToUpper(r.CheckerName), r.Summary)
+	fmt.Printf("%s %s — %s\n\n", icon, strings.ToUpper(r.CheckerName), r.Summary)
 
 	if r.Error != "" {
-		fmt.Printf("  WARNING: %s\n", r.Error)
+		fmt.Printf("  WARNING: %s\n\n", r.Error)
 	}
 
 	if r.CheckerName == "wordpress" {
@@ -57,6 +58,10 @@ func printCheckerResult(r *checker.CheckResult) {
 			}
 			fmt.Printf("  [%s] %-30s %s -> %s%s\n", marker, u.Name, u.CurrentVersion, u.NewVersion, suffix)
 		}
+	}
+
+	if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+		fmt.Printf("\n  \U0001f4a1 Update: %s\n", cmd)
 	}
 
 	fmt.Println()
@@ -148,8 +153,22 @@ func checkerIcon(name string) string {
 	switch name {
 	case "apt":
 		return "[APT]"
+	case "dnf":
+		return "[DNF]"
+	case "pacman":
+		return "[PAC]"
+	case "zypper":
+		return "[ZYP]"
+	case "apk":
+		return "[APK]"
 	case "macos":
 		return "[MAC]"
+	case "homebrew":
+		return "[BREW]"
+	case "snap":
+		return "[SNAP]"
+	case "flatpak":
+		return "[FLAT]"
 	case "docker":
 		return "[DCK]"
 	case "wordpress":

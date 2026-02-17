@@ -68,6 +68,11 @@ func BuildHTMLMessage(hostname string, results []*checker.CheckResult) string {
 			writeUpdatesTable(&b, r)
 		}
 
+		if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+			b.WriteString(fmt.Sprintf(`  <p style="margin-top: 8px; font-size: 13px; color: #6b7280;">💡 Update: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">%s</code></p>
+`, html.EscapeString(cmd)))
+		}
+
 		b.WriteString("</div>\n")
 	}
 

@@ -285,6 +285,13 @@ func manageWatchers(cfg *config.Config) error {
 					}
 					fmt.Printf("    [✓] Web Project: %q (%s, env: %s)\n", name, path, env)
 				}
+			case "homebrew":
+				casks := w.GetBool("include_casks", true)
+				fmt.Printf("    [✓] Homebrew (%s, casks: %v)\n", status, casks)
+			case "snap":
+				fmt.Printf("    [✓] Snap (%s)\n", status)
+			case "flatpak":
+				fmt.Printf("    [✓] Flatpak (%s)\n", status)
 			}
 		}
 		fmt.Println()
@@ -308,6 +315,15 @@ func manageWatchers(cfg *config.Config) error {
 		}
 		if runtime.GOOS == "darwin" && isToolAvailable("softwareupdate") {
 			options = append(options, huh.NewOption("Add macOS watcher", "add-macos"))
+		}
+		if isToolAvailable("brew") {
+			options = append(options, huh.NewOption("Add Homebrew watcher", "add-homebrew"))
+		}
+		if isToolAvailable("snap") {
+			options = append(options, huh.NewOption("Add Snap watcher", "add-snap"))
+		}
+		if isToolAvailable("flatpak") {
+			options = append(options, huh.NewOption("Add Flatpak watcher", "add-flatpak"))
 		}
 		if isToolAvailable("docker") {
 			options = append(options, huh.NewOption("Add Docker watcher", "add-docker"))
@@ -347,6 +363,12 @@ func manageWatchers(cfg *config.Config) error {
 			addApkWatcher(cfg)
 		case "add-macos":
 			addMacOSWatcher(cfg)
+		case "add-homebrew":
+			addHomebrewWatcher(cfg)
+		case "add-snap":
+			addSnapWatcher(cfg)
+		case "add-flatpak":
+			addFlatpakWatcher(cfg)
 		case "add-docker":
 			addDockerWatcher(cfg)
 		case "add-wordpress":
@@ -551,6 +573,54 @@ func addMacOSWatcher(cfg *config.Config) {
 		},
 	})
 	fmt.Println("  macOS watcher configured.")
+}
+
+func addHomebrewWatcher(cfg *config.Config) {
+	includeCasks := true
+
+	// Pre-fill from existing
+	for _, w := range cfg.Watchers {
+		if w.Type == "homebrew" {
+			includeCasks = w.GetBool("include_casks", true)
+			break
+		}
+	}
+
+	huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Include cask updates?").
+				Description("Casks are macOS GUI applications (e.g. Firefox, VS Code)").
+				Value(&includeCasks),
+		),
+	).Run()
+
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "homebrew",
+		Enabled: true,
+		Options: map[string]interface{}{
+			"include_casks": includeCasks,
+		},
+	})
+	fmt.Println("  Homebrew watcher configured.")
+}
+
+func addSnapWatcher(cfg *config.Config) {
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "snap",
+		Enabled: true,
+		Options: map[string]interface{}{},
+	})
+	fmt.Println("  Snap watcher configured.")
+}
+
+func addFlatpakWatcher(cfg *config.Config) {
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "flatpak",
+		Enabled: true,
+		Options: map[string]interface{}{},
+	})
+	fmt.Println("  Flatpak watcher configured.")
 }
 
 func addDockerWatcher(cfg *config.Config) {

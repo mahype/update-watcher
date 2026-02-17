@@ -17,6 +17,9 @@ A modular CLI tool that checks for available software updates and sends notifica
 - 🦎 **Zypper** — openSUSE/SLES package updates (with security patches)
 - 🏔️ **APK** — Alpine Linux package updates
 - 🍎 **macOS** — macOS software updates via `softwareupdate` (with security-only filter)
+- 🍺 **Homebrew** — macOS/Linux Homebrew package updates (formulae and casks)
+- 📦 **Snap** — Ubuntu/Linux Snap package updates
+- 📦 **Flatpak** — Linux Flatpak application updates
 - 🐳 **Docker** — Detects newer images for running containers (read-only, no image pulls)
 - 📝 **WordPress** — Core, plugin, and theme updates across 11 environments
 - 📦 **Web Projects** — Outdated packages and security audits for npm, yarn, pnpm, and Composer
@@ -72,6 +75,9 @@ update-watcher install-cron
 | `watch zypper [--security-only] [--no-sudo]` | Add Zypper watcher |
 | `watch apk [--no-sudo]` | Add APK watcher |
 | `watch macos [--security-only]` | Add macOS software update watcher |
+| `watch homebrew [--no-casks]` | Add Homebrew watcher |
+| `watch snap` | Add Snap watcher |
+| `watch flatpak` | Add Flatpak watcher |
 | `watch docker` | Add Docker watcher |
 | `watch webproject --path PATH [--name NAME] [--env TYPE]` | Add web project watcher |
 | `watch wordpress --path PATH [--name NAME] [--env TYPE]` | Add WordPress watcher |
@@ -176,6 +182,11 @@ watchers:
     enabled: true
     options:
       security_only: false
+
+  - type: homebrew
+    enabled: true
+    options:
+      include_casks: true
 
   - type: docker
     enabled: true
@@ -282,6 +293,7 @@ settings:
 | `zypper` | `security_only` | `false` | Only report security updates |
 | `apk` | `use_sudo` | `false` | Use sudo for apk operations |
 | `macos` | `security_only` | `false` | Only report security updates |
+| `homebrew` | `include_casks` | `true` | Also check cask updates |
 | `docker` | `containers` | `"all"` | `"all"` or comma-separated names |
 | `docker` | `exclude` | `[]` | Container names to skip |
 | `wordpress` | `sites` | `[]` | List of site objects (name, path, run_as, environment) |

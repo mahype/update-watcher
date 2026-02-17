@@ -34,6 +34,10 @@ func BuildPlainTextMessage(hostname string, results []*checker.CheckResult) stri
 			parts = append(parts, updates)
 		}
 
+		if cmd := UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+			parts = append(parts, fmt.Sprintf("  -> Update: %s", cmd))
+		}
+
 		parts = append(parts, "")
 	}
 

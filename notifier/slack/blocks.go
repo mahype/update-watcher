@@ -46,6 +46,10 @@ func BuildMessage(hostname string, results []*checker.CheckResult, useEmoji bool
 			sectionTitle += "\n\n" + body
 		}
 
+		if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+			sectionTitle += fmt.Sprintf("\n\n\U0001f4a1 Update: `%s`", cmd)
+		}
+
 		blocks = append(blocks, sectionBlock(sectionTitle))
 	}
 

@@ -39,7 +39,7 @@ func BuildMarkdownMessage(hostname string, results []*checker.CheckResult, opts 
 	// Per-checker sections
 	for _, r := range results {
 		icon := CheckerEmoji(r.CheckerName, opts.UseEmoji)
-		sectionTitle := fmt.Sprintf("### %s %s — %s", icon, CheckerDisplayName(r.CheckerName), r.Summary)
+		sectionTitle := fmt.Sprintf("---\n### %s %s — %s", icon, CheckerDisplayName(r.CheckerName), r.Summary)
 
 		if r.Error != "" {
 			sectionTitle += fmt.Sprintf("\n\u26a0\ufe0f %s", r.Error)
@@ -48,6 +48,10 @@ func BuildMarkdownMessage(hostname string, results []*checker.CheckResult, opts 
 		updates := FormatUpdatesMarkdown(r, opts.UseEmoji)
 		if updates != "" {
 			sectionTitle += "\n\n" + updates
+		}
+
+		if cmd := UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+			sectionTitle += fmt.Sprintf("\n\n> \U0001f4a1 Update: `%s`", cmd)
 		}
 
 		parts = append(parts, sectionTitle)

@@ -113,25 +113,31 @@ func buildHTMLMessage(hostname string, results []*checker.CheckResult) string {
 	// Per-checker sections
 	for _, r := range results {
 		icon := formatting.CheckerEmoji(r.CheckerName, true)
-		parts = append(parts, fmt.Sprintf("\n<b>%s %s</b> — %s",
-			icon, html.EscapeString(formatting.CheckerDisplayName(r.CheckerName)), html.EscapeString(r.Summary)))
+		section := fmt.Sprintf("<b>%s %s</b> — %s",
+			icon, html.EscapeString(formatting.CheckerDisplayName(r.CheckerName)), html.EscapeString(r.Summary))
 
 		if r.Error != "" {
-			parts = append(parts, fmt.Sprintf("\u26a0\ufe0f %s", html.EscapeString(r.Error)))
+			section += fmt.Sprintf("\n\u26a0\ufe0f %s", html.EscapeString(r.Error))
 		}
 
 		updates := formatUpdatesHTML(r)
 		if updates != "" {
-			parts = append(parts, updates)
+			section += "\n\n" + updates
 		}
+
+		if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+			section += fmt.Sprintf("\n\n\U0001f4a1 Update: <code>%s</code>", html.EscapeString(cmd))
+		}
+
+		parts = append(parts, section)
 	}
 
 	// Security footer
 	if summary.SecurityCount > 0 {
-		parts = append(parts, fmt.Sprintf("\n\u26a0\ufe0f <b>Security updates require attention</b> (%d security updates)", summary.SecurityCount))
+		parts = append(parts, fmt.Sprintf("\u26a0\ufe0f <b>Security updates require attention</b> (%d security updates)", summary.SecurityCount))
 	}
 
-	return strings.Join(parts, "\n")
+	return strings.Join(parts, "\n\n")
 }
 
 func formatUpdatesHTML(r *checker.CheckResult) string {

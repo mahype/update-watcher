@@ -61,6 +61,9 @@ func TestCheckerEmoji(t *testing.T) {
 	if e := CheckerEmoji("docker", true); e != "\U0001f433" {
 		t.Errorf("expected whale emoji for docker, got %q", e)
 	}
+	if e := CheckerEmoji("homebrew", true); e != "\U0001f37a" {
+		t.Errorf("expected beer mug emoji for homebrew, got %q", e)
+	}
 	if e := CheckerEmoji("apt", false); e != "" {
 		t.Errorf("expected empty string when emoji disabled, got %q", e)
 	}

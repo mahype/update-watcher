@@ -77,6 +77,16 @@ func BuildAdaptiveCard(hostname string, results []*checker.CheckResult) map[stri
 			})
 		}
 
+		if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+			items = append(items, map[string]interface{}{
+				"type":     "TextBlock",
+				"text":     fmt.Sprintf("\U0001f4a1 Update: `%s`", cmd),
+				"wrap":     true,
+				"isSubtle": true,
+				"spacing":  "Small",
+			})
+		}
+
 		bodyElements = append(bodyElements, map[string]interface{}{
 			"type":      "Container",
 			"separator": true,
