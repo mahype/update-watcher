@@ -10,7 +10,7 @@ import (
 var unwatchCmd = &cobra.Command{
 	Use:   "unwatch <type>",
 	Short: "Remove a watcher from the configuration",
-	Long:  "Remove an update checker (apt, docker, or wordpress) from the configuration.",
+	Long:  "Remove an update checker (apt, dnf, pacman, zypper, apk, docker, or wordpress) from the configuration.",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cfg, err := config.Load()

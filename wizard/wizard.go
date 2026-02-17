@@ -2,6 +2,8 @@ package wizard
 
 import (
 	"fmt"
+	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -10,7 +12,14 @@ import (
 	"github.com/mahype/update-watcher/config"
 	"github.com/mahype/update-watcher/cron"
 	"github.com/mahype/update-watcher/internal/hostname"
+	"github.com/mahype/update-watcher/notifier"
 )
+
+// isToolAvailable checks if a command-line tool is on the system PATH.
+func isToolAvailable(name string) bool {
+	_, err := exec.LookPath(name)
+	return err == nil
+}
 
 const (
 	menuWatchers      = "watchers"
@@ -107,9 +116,10 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 		var types []string
 		for _, w := range cfg.Watchers {
 			t := w.Type
-			if t == "apt" {
-				t = "APT"
-			} else {
+			switch t {
+			case "apt", "dnf", "apk":
+				t = strings.ToUpper(t)
+			default:
 				t = strings.ToUpper(t[:1]) + t[1:]
 			}
 			types = append(types, t)
@@ -124,14 +134,12 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 	} else {
 		var names []string
 		for _, n := range cfg.Notifiers {
-			label := n.Type
-			if n.Type == "slack" {
-				opts := config.WatcherConfig{Options: n.Options}
-				if opts.GetString("webhook_url", "") != "" {
-					label += " configured"
-				}
+			meta, ok := notifier.GetMeta(n.Type)
+			if ok {
+				names = append(names, meta.DisplayName)
+			} else {
+				names = append(names, n.Type)
 			}
-			names = append(names, label)
 		}
 		notifLabel += " (" + strings.Join(names, ", ") + ")"
 	}
@@ -156,7 +164,7 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 		huh.NewOption(notifLabel, menuNotifications),
 		huh.NewOption(settingsLabel, menuSettings),
 		huh.NewOption(cronLabel, menuCron),
-		huh.NewOption("Run Test Check (dry-run)", menuTestRun),
+		huh.NewOption("Run Test Check", menuTestRun),
 		huh.NewOption("Save & Exit", menuSaveExit),
 	}
 }
@@ -192,15 +200,12 @@ func printStatus(cfg *config.Config) {
 	} else {
 		var names []string
 		for _, n := range cfg.Notifiers {
-			label := n.Type
-			if n.Type == "slack" {
-				opts := config.WatcherConfig{Options: n.Options}
-				url := opts.GetString("webhook_url", "")
-				if url != "" {
-					label += " (configured)"
-				}
+			meta, ok := notifier.GetMeta(n.Type)
+			if ok {
+				names = append(names, meta.DisplayName)
+			} else {
+				names = append(names, n.Type)
 			}
-			names = append(names, label)
 		}
 		fmt.Printf("  Notifications: %s\n", strings.Join(names, ", "))
 	}
@@ -235,6 +240,16 @@ func manageWatchers(cfg *config.Config) error {
 			case "apt":
 				secOnly := w.GetBool("security_only", false)
 				fmt.Printf("    [✓] APT (%s, security_only: %v)\n", status, secOnly)
+			case "dnf":
+				secOnly := w.GetBool("security_only", false)
+				fmt.Printf("    [✓] DNF (%s, security_only: %v)\n", status, secOnly)
+			case "pacman":
+				fmt.Printf("    [✓] Pacman (%s)\n", status)
+			case "zypper":
+				secOnly := w.GetBool("security_only", false)
+				fmt.Printf("    [✓] Zypper (%s, security_only: %v)\n", status, secOnly)
+			case "apk":
+				fmt.Printf("    [✓] APK (%s)\n", status)
 			case "docker":
 				containers := w.GetString("containers", "all")
 				fmt.Printf("    [✓] Docker (%s, containers: %s)\n", status, containers)
@@ -253,11 +268,28 @@ func manageWatchers(cfg *config.Config) error {
 		}
 		fmt.Println()
 
-		options := []huh.Option[string]{
-			huh.NewOption("Add APT watcher", "add-apt"),
-			huh.NewOption("Add Docker watcher", "add-docker"),
-			huh.NewOption("Add WordPress site", "add-wordpress"),
+		var options []huh.Option[string]
+		// Only show options for tools that are available on this system.
+		if runtime.GOOS == "linux" && isToolAvailable("apt") {
+			options = append(options, huh.NewOption("Add APT watcher", "add-apt"))
 		}
+		if runtime.GOOS == "linux" && isToolAvailable("dnf") {
+			options = append(options, huh.NewOption("Add DNF watcher", "add-dnf"))
+		}
+		if runtime.GOOS == "linux" && isToolAvailable("pacman") {
+			options = append(options, huh.NewOption("Add Pacman watcher", "add-pacman"))
+		}
+		if runtime.GOOS == "linux" && isToolAvailable("zypper") {
+			options = append(options, huh.NewOption("Add Zypper watcher", "add-zypper"))
+		}
+		if runtime.GOOS == "linux" && isToolAvailable("apk") {
+			options = append(options, huh.NewOption("Add APK watcher", "add-apk"))
+		}
+		if isToolAvailable("docker") {
+			options = append(options, huh.NewOption("Add Docker watcher", "add-docker"))
+		}
+		// WordPress is always available (environment detection handles tool requirements).
+		options = append(options, huh.NewOption("Add WordPress site", "add-wordpress"))
 		if len(cfg.Watchers) > 0 {
 			options = append(options, huh.NewOption("Remove a watcher", "remove"))
 		}
@@ -279,6 +311,14 @@ func manageWatchers(cfg *config.Config) error {
 		switch choice {
 		case "add-apt":
 			addAptWatcher(cfg)
+		case "add-dnf":
+			addDnfWatcher(cfg)
+		case "add-pacman":
+			addPacmanWatcher(cfg)
+		case "add-zypper":
+			addZypperWatcher(cfg)
+		case "add-apk":
+			addApkWatcher(cfg)
 		case "add-docker":
 			addDockerWatcher(cfg)
 		case "add-wordpress":
@@ -324,6 +364,134 @@ func addAptWatcher(cfg *config.Config) {
 		},
 	})
 	fmt.Println("  APT watcher configured.")
+}
+
+func addDnfWatcher(cfg *config.Config) {
+	securityOnly := false
+	useSudo := true
+
+	// Pre-fill from existing
+	for _, w := range cfg.Watchers {
+		if w.Type == "dnf" {
+			securityOnly = w.GetBool("security_only", false)
+			useSudo = w.GetBool("use_sudo", true)
+			break
+		}
+	}
+
+	huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Only report security updates?").
+				Value(&securityOnly),
+			huh.NewConfirm().
+				Title("Use sudo for dnf operations?").
+				Value(&useSudo),
+		),
+	).Run()
+
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "dnf",
+		Enabled: true,
+		Options: map[string]interface{}{
+			"security_only": securityOnly,
+			"use_sudo":      useSudo,
+		},
+	})
+	fmt.Println("  DNF watcher configured.")
+}
+
+func addPacmanWatcher(cfg *config.Config) {
+	useSudo := true
+
+	// Pre-fill from existing
+	for _, w := range cfg.Watchers {
+		if w.Type == "pacman" {
+			useSudo = w.GetBool("use_sudo", true)
+			break
+		}
+	}
+
+	huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Use sudo for pacman sync operations?").
+				Value(&useSudo),
+		),
+	).Run()
+
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "pacman",
+		Enabled: true,
+		Options: map[string]interface{}{
+			"use_sudo": useSudo,
+		},
+	})
+	fmt.Println("  Pacman watcher configured.")
+}
+
+func addZypperWatcher(cfg *config.Config) {
+	securityOnly := false
+	useSudo := true
+
+	// Pre-fill from existing
+	for _, w := range cfg.Watchers {
+		if w.Type == "zypper" {
+			securityOnly = w.GetBool("security_only", false)
+			useSudo = w.GetBool("use_sudo", true)
+			break
+		}
+	}
+
+	huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Only report security updates?").
+				Value(&securityOnly),
+			huh.NewConfirm().
+				Title("Use sudo for zypper operations?").
+				Value(&useSudo),
+		),
+	).Run()
+
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "zypper",
+		Enabled: true,
+		Options: map[string]interface{}{
+			"security_only": securityOnly,
+			"use_sudo":      useSudo,
+		},
+	})
+	fmt.Println("  Zypper watcher configured.")
+}
+
+func addApkWatcher(cfg *config.Config) {
+	useSudo := false
+
+	// Pre-fill from existing
+	for _, w := range cfg.Watchers {
+		if w.Type == "apk" {
+			useSudo = w.GetBool("use_sudo", false)
+			break
+		}
+	}
+
+	huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Use sudo for apk operations?").
+				Value(&useSudo),
+		),
+	).Run()
+
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "apk",
+		Enabled: true,
+		Options: map[string]interface{}{
+			"use_sudo": useSudo,
+		},
+	})
+	fmt.Println("  APK watcher configured.")
 }
 
 func addDockerWatcher(cfg *config.Config) {
@@ -584,36 +752,59 @@ func removeWatcher(cfg *config.Config) {
 // --- Notifications sub-menu ---
 
 func manageNotifications(cfg *config.Config) error {
-	// Check if Slack is already configured
-	var existingSlack *config.NotifierConfig
-	for i := range cfg.Notifiers {
-		if cfg.Notifiers[i].Type == "slack" {
-			existingSlack = &cfg.Notifiers[i]
-			break
+	for {
+		// Show configured notifiers
+		fmt.Println()
+		fmt.Println("  Configured notifiers:")
+		if len(cfg.Notifiers) == 0 {
+			fmt.Println("    (none)")
 		}
-	}
+		for _, n := range cfg.Notifiers {
+			status := "enabled"
+			if !n.Enabled {
+				status = "disabled"
+			}
+			meta, ok := notifier.GetMeta(n.Type)
+			displayName := n.Type
+			if ok {
+				displayName = meta.DisplayName
+			}
+			fmt.Printf("    [✓] %s (%s)\n", displayName, status)
+		}
+		fmt.Println()
 
-	if existingSlack != nil {
-		opts := config.WatcherConfig{Options: existingSlack.Options}
-		url := opts.GetString("webhook_url", "")
-		masked := "(not set)"
-		if len(url) > 10 {
-			masked = "..." + url[len(url)-6:]
-		} else if url != "" {
-			masked = "(set)"
+		// Build menu options
+		var options []huh.Option[string]
+
+		// Add options for each available notifier type
+		for _, meta := range notifier.AllMeta() {
+			options = append(options, huh.NewOption(
+				fmt.Sprintf("Add %s", meta.DisplayName),
+				"add:"+meta.Type,
+			))
 		}
-		fmt.Printf("\n  Slack webhook: %s\n\n", masked)
+
+		// Edit/remove options for configured notifiers
+		for i, n := range cfg.Notifiers {
+			meta, ok := notifier.GetMeta(n.Type)
+			displayName := n.Type
+			if ok {
+				displayName = meta.DisplayName
+			}
+			options = append(options,
+				huh.NewOption(fmt.Sprintf("Edit %s", displayName), fmt.Sprintf("edit:%d", i)),
+				huh.NewOption(fmt.Sprintf("Remove %s", displayName), fmt.Sprintf("remove:%d", i)),
+			)
+		}
+
+		options = append(options, huh.NewOption("Back to main menu", "back"))
 
 		var choice string
 		err := huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
-					Title("Slack Notifications").
-					Options(
-						huh.NewOption("Edit Slack settings", "edit"),
-						huh.NewOption("Remove Slack", "remove"),
-						huh.NewOption("Back to main menu", "back"),
-					).
+					Title("Manage Notifications").
+					Options(options...).
 					Value(&choice),
 			),
 		).Run()
@@ -621,106 +812,42 @@ func manageNotifications(cfg *config.Config) error {
 			return nil
 		}
 
-		switch choice {
-		case "edit":
-			return editSlack(cfg, existingSlack)
-		case "remove":
-			for i, n := range cfg.Notifiers {
-				if n.Type == "slack" {
-					cfg.Notifiers = append(cfg.Notifiers[:i], cfg.Notifiers[i+1:]...)
-					fmt.Println("  Slack notifier removed.")
-					break
+		if choice == "back" {
+			return nil
+		}
+
+		if strings.HasPrefix(choice, "add:") {
+			notifierType := strings.TrimPrefix(choice, "add:")
+			if fn, ok := addFuncs[notifierType]; ok {
+				if err := fn(cfg); err != nil {
+					return err
 				}
 			}
-			return nil
-		case "back":
-			return nil
+		} else if strings.HasPrefix(choice, "edit:") {
+			var idx int
+			fmt.Sscanf(choice, "edit:%d", &idx)
+			if idx >= 0 && idx < len(cfg.Notifiers) {
+				n := &cfg.Notifiers[idx]
+				if fn, ok := editFuncs[n.Type]; ok {
+					if err := fn(cfg, n); err != nil {
+						return err
+					}
+				}
+			}
+		} else if strings.HasPrefix(choice, "remove:") {
+			var idx int
+			fmt.Sscanf(choice, "remove:%d", &idx)
+			if idx >= 0 && idx < len(cfg.Notifiers) {
+				meta, ok := notifier.GetMeta(cfg.Notifiers[idx].Type)
+				displayName := cfg.Notifiers[idx].Type
+				if ok {
+					displayName = meta.DisplayName
+				}
+				cfg.Notifiers = append(cfg.Notifiers[:idx], cfg.Notifiers[idx+1:]...)
+				fmt.Printf("  %s notifier removed.\n", displayName)
+			}
 		}
-	} else {
-		var addSlack bool
-		err := huh.NewForm(
-			huh.NewGroup(
-				huh.NewConfirm().
-					Title("Configure Slack notifications?").
-					Value(&addSlack),
-			),
-		).Run()
-		if err != nil {
-			return nil
-		}
-		if addSlack {
-			return addNewSlack(cfg)
-		}
 	}
-	return nil
-}
-
-func editSlack(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	webhookURL := opts.GetString("webhook_url", "")
-	mentionOnSecurity := opts.GetString("mention_on_security", "") != ""
-
-	err := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Slack Webhook URL").
-				Description("Leave unchanged or enter a new URL").
-				Value(&webhookURL),
-			huh.NewConfirm().
-				Title("Mention @channel for security updates?").
-				Value(&mentionOnSecurity),
-		),
-	).Run()
-	if err != nil {
-		return nil
-	}
-
-	existing.Options["webhook_url"] = webhookURL
-	if mentionOnSecurity {
-		existing.Options["mention_on_security"] = "@channel"
-	} else {
-		delete(existing.Options, "mention_on_security")
-	}
-
-	fmt.Println("  Slack settings updated.")
-	return nil
-}
-
-func addNewSlack(cfg *config.Config) error {
-	var webhookURL string
-	var mentionOnSecurity bool
-
-	err := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("Slack Webhook URL").
-				Description("Create one at https://api.slack.com/messaging/webhooks").
-				Value(&webhookURL),
-			huh.NewConfirm().
-				Title("Mention @channel for security updates?").
-				Value(&mentionOnSecurity),
-		),
-	).Run()
-	if err != nil {
-		return nil
-	}
-
-	options := map[string]interface{}{
-		"webhook_url": webhookURL,
-		"use_emoji":   true,
-	}
-	if mentionOnSecurity {
-		options["mention_on_security"] = "@channel"
-	}
-
-	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "slack",
-		Enabled: true,
-		Options: options,
-	})
-
-	fmt.Println("  Slack notifier added.")
-	return nil
 }
 
 // --- Settings sub-menu ---

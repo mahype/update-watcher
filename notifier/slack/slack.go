@@ -16,6 +16,11 @@ import (
 
 func init() {
 	notifier.Register("slack", NewFromConfig)
+	notifier.RegisterMeta(notifier.NotifierMeta{
+		Type:        "slack",
+		DisplayName: "Slack",
+		Description: "Send notifications via Slack webhooks",
+	})
 }
 
 // SlackNotifier sends update reports via Slack webhooks.

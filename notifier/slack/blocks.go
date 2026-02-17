@@ -6,9 +6,8 @@ import (
 	"time"
 
 	"github.com/mahype/update-watcher/checker"
+	"github.com/mahype/update-watcher/notifier/formatting"
 )
-
-const maxUpdatesPerSection = 10
 
 // Block is a Slack Block Kit block.
 type Block map[string]interface{}
@@ -25,28 +24,18 @@ func BuildMessage(hostname string, results []*checker.CheckResult, useEmoji bool
 	blocks = append(blocks, headerBlock(title))
 
 	// Context: timestamp and summary
-	totalUpdates := 0
-	totalSecurity := 0
-	checkerCount := len(results)
-	for _, r := range results {
-		totalUpdates += len(r.Updates)
-		for _, u := range r.Updates {
-			if u.Type == checker.UpdateTypeSecurity {
-				totalSecurity++
-			}
-		}
-	}
+	summary := formatting.SummarizeResults(results)
 
 	contextText := fmt.Sprintf("Checked at %s  |  %d checkers  |  %d updates found",
-		time.Now().UTC().Format("2006-01-02 15:04 UTC"), checkerCount, totalUpdates)
+		time.Now().UTC().Format("2006-01-02 15:04 UTC"), summary.CheckerCount, summary.TotalUpdates)
 	blocks = append(blocks, contextBlock(contextText))
 
 	// Per-checker sections
 	for _, r := range results {
 		blocks = append(blocks, dividerBlock())
 
-		icon := checkerEmoji(r.CheckerName, useEmoji)
-		sectionTitle := fmt.Sprintf("*%s %s* — %s", icon, checkerDisplayName(r.CheckerName), r.Summary)
+		icon := formatting.CheckerEmoji(r.CheckerName, useEmoji)
+		sectionTitle := fmt.Sprintf("*%s %s* — %s", icon, formatting.CheckerDisplayName(r.CheckerName), r.Summary)
 
 		if r.Error != "" {
 			sectionTitle += fmt.Sprintf("\n:warning: %s", r.Error)
@@ -61,9 +50,9 @@ func BuildMessage(hostname string, results []*checker.CheckResult, useEmoji bool
 	}
 
 	// Footer with mentions if security updates present
-	if totalSecurity > 0 {
+	if summary.SecurityCount > 0 {
 		blocks = append(blocks, dividerBlock())
-		blocks = append(blocks, contextBlock(fmt.Sprintf("<!channel> Security updates require attention  |  _update-watcher_")))
+		blocks = append(blocks, contextBlock("<!channel> Security updates require attention  |  _update-watcher_"))
 	}
 
 	return blocks
@@ -82,11 +71,11 @@ func formatUpdates(r *checker.CheckResult, useEmoji bool) string {
 	var lines []string
 	shown := 0
 	for _, u := range r.Updates {
-		if shown >= maxUpdatesPerSection {
-			lines = append(lines, fmt.Sprintf("_...and %d more_", len(r.Updates)-maxUpdatesPerSection))
+		if shown >= formatting.MaxUpdatesPerSection {
+			lines = append(lines, fmt.Sprintf("_...and %d more_", len(r.Updates)-formatting.MaxUpdatesPerSection))
 			break
 		}
-		indicator := priorityIndicator(u, useEmoji)
+		indicator := formatting.PriorityIndicator(u, useEmoji)
 		line := fmt.Sprintf("%s `%s` %s \u2192 %s", indicator, u.Name, u.CurrentVersion, u.NewVersion)
 		if u.Type == checker.UpdateTypeSecurity {
 			line += " _(security)_"
@@ -118,12 +107,12 @@ func formatWordPressUpdates(updates []checker.Update, useEmoji bool) string {
 		lines := []string{fmt.Sprintf("*%s*", source)}
 		shown := 0
 		for _, u := range siteUpdates {
-			if shown >= maxUpdatesPerSection {
-				lines = append(lines, fmt.Sprintf("_...and %d more_", len(siteUpdates)-maxUpdatesPerSection))
+			if shown >= formatting.MaxUpdatesPerSection {
+				lines = append(lines, fmt.Sprintf("_...and %d more_", len(siteUpdates)-formatting.MaxUpdatesPerSection))
 				break
 			}
-			indicator := priorityIndicator(u, useEmoji)
-			typeName := strings.Title(u.Type)
+			indicator := formatting.PriorityIndicator(u, useEmoji)
+			typeName := strings.ToUpper(u.Type[:1]) + u.Type[1:]
 			line := fmt.Sprintf("%s %s: `%s` %s \u2192 %s", indicator, typeName, u.Name, u.CurrentVersion, u.NewVersion)
 			if u.Type == checker.UpdateTypeSecurity {
 				line += " _(security)_"
@@ -135,48 +124,6 @@ func formatWordPressUpdates(updates []checker.Update, useEmoji bool) string {
 	}
 
 	return strings.Join(sections, "\n\n")
-}
-
-func checkerEmoji(name string, useEmoji bool) string {
-	if !useEmoji {
-		return ""
-	}
-	switch name {
-	case "apt":
-		return "\U0001f427" // 🐧
-	case "docker":
-		return "\U0001f433" // 🐳
-	case "wordpress":
-		return "\U0001f4dd" // 📝
-	default:
-		return "\U0001f504" // 🔄
-	}
-}
-
-func checkerDisplayName(name string) string {
-	switch name {
-	case "apt":
-		return "APT Updates"
-	case "docker":
-		return "Docker Updates"
-	case "wordpress":
-		return "WordPress Updates"
-	default:
-		return name + " Updates"
-	}
-}
-
-func priorityIndicator(u checker.Update, useEmoji bool) string {
-	if !useEmoji {
-		if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
-			return "[!]"
-		}
-		return "[-]"
-	}
-	if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
-		return "\U0001f534" // 🔴
-	}
-	return "\u26aa" // ⚪
 }
 
 func headerBlock(text string) Block {

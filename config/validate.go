@@ -30,7 +30,7 @@ func Validate(cfg *Config) error {
 		ve.add("no watchers configured")
 	}
 
-	validTypes := map[string]bool{"apt": true, "docker": true, "wordpress": true}
+	validTypes := map[string]bool{"apt": true, "dnf": true, "pacman": true, "zypper": true, "apk": true, "docker": true, "wordpress": true}
 	for i, w := range cfg.Watchers {
 		if !validTypes[w.Type] {
 			ve.add(fmt.Sprintf("watcher[%d]: unknown type %q", i, w.Type))
@@ -52,16 +52,63 @@ func Validate(cfg *Config) error {
 		ve.add("no notifiers configured")
 	}
 
-	validNotifiers := map[string]bool{"slack": true}
+	validNotifiers := map[string]bool{
+		"slack":    true,
+		"ntfy":     true,
+		"webhook":  true,
+		"discord":  true,
+		"telegram": true,
+		"teams":    true,
+		"email":    true,
+	}
 	for i, n := range cfg.Notifiers {
 		if !validNotifiers[n.Type] {
 			ve.add(fmt.Sprintf("notifier[%d]: unknown type %q", i, n.Type))
 		}
-		if n.Type == "slack" && n.Enabled {
-			opts := WatcherConfig{Options: n.Options}
-			url := opts.GetString("webhook_url", "")
-			if url == "" {
+
+		if !n.Enabled {
+			continue
+		}
+
+		opts := WatcherConfig{Options: n.Options}
+
+		switch n.Type {
+		case "slack":
+			if opts.GetString("webhook_url", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (slack): missing webhook_url", i))
+			}
+		case "ntfy":
+			if opts.GetString("topic", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (ntfy): missing topic", i))
+			}
+		case "webhook":
+			if opts.GetString("url", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (webhook): missing url", i))
+			}
+		case "discord":
+			if opts.GetString("webhook_url", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (discord): missing webhook_url", i))
+			}
+		case "telegram":
+			if opts.GetString("bot_token", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (telegram): missing bot_token", i))
+			}
+			if opts.GetString("chat_id", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (telegram): missing chat_id", i))
+			}
+		case "teams":
+			if opts.GetString("webhook_url", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (teams): missing webhook_url", i))
+			}
+		case "email":
+			for _, field := range []string{"smtp_host", "username", "password", "from"} {
+				if opts.GetString(field, "") == "" {
+					ve.add(fmt.Sprintf("notifier[%d] (email): missing %s", i, field))
+				}
+			}
+			to := opts.GetStringSlice("to", nil)
+			if len(to) == 0 {
+				ve.add(fmt.Sprintf("notifier[%d] (email): missing 'to' recipients", i))
 			}
 		}
 	}

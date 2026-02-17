@@ -6,14 +6,24 @@ import (
 
 	"github.com/mahype/update-watcher/checker"
 	// Import checker implementations so they register themselves
+	_ "github.com/mahype/update-watcher/checker/apk"
 	_ "github.com/mahype/update-watcher/checker/apt"
+	_ "github.com/mahype/update-watcher/checker/dnf"
 	_ "github.com/mahype/update-watcher/checker/docker"
+	_ "github.com/mahype/update-watcher/checker/pacman"
 	_ "github.com/mahype/update-watcher/checker/wordpress"
+	_ "github.com/mahype/update-watcher/checker/zypper"
 
 	"github.com/mahype/update-watcher/config"
 	"github.com/mahype/update-watcher/notifier"
 	// Import notifier implementations so they register themselves
+	_ "github.com/mahype/update-watcher/notifier/discord"
+	_ "github.com/mahype/update-watcher/notifier/email"
+	_ "github.com/mahype/update-watcher/notifier/ntfy"
 	_ "github.com/mahype/update-watcher/notifier/slack"
+	_ "github.com/mahype/update-watcher/notifier/teams"
+	_ "github.com/mahype/update-watcher/notifier/telegram"
+	_ "github.com/mahype/update-watcher/notifier/webhook"
 )
 
 // RunResult is the aggregate outcome of a full run.

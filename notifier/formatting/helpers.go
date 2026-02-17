@@ -1,0 +1,224 @@
+package formatting
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/mahype/update-watcher/checker"
+)
+
+const MaxUpdatesPerSection = 10
+
+// Summary holds aggregated stats for a set of check results.
+type Summary struct {
+	TotalUpdates  int
+	SecurityCount int
+	CheckerCount  int
+}
+
+// SummarizeResults calculates aggregated stats from check results.
+func SummarizeResults(results []*checker.CheckResult) Summary {
+	s := Summary{CheckerCount: len(results)}
+	for _, r := range results {
+		s.TotalUpdates += len(r.Updates)
+		for _, u := range r.Updates {
+			if u.Type == checker.UpdateTypeSecurity {
+				s.SecurityCount++
+			}
+		}
+	}
+	return s
+}
+
+// CheckerEmoji returns an emoji for a checker type.
+func CheckerEmoji(name string, useEmoji bool) string {
+	if !useEmoji {
+		return ""
+	}
+	switch name {
+	case "apt", "dnf", "pacman", "zypper", "apk":
+		return "\U0001f427" // 🐧
+	case "docker":
+		return "\U0001f433" // 🐳
+	case "wordpress":
+		return "\U0001f4dd" // 📝
+	default:
+		return "\U0001f504" // 🔄
+	}
+}
+
+// CheckerDisplayName returns a human-readable name for a checker type.
+func CheckerDisplayName(name string) string {
+	switch name {
+	case "apt":
+		return "APT Updates"
+	case "dnf":
+		return "DNF Updates"
+	case "pacman":
+		return "Pacman Updates"
+	case "zypper":
+		return "Zypper Updates"
+	case "apk":
+		return "APK Updates"
+	case "docker":
+		return "Docker Updates"
+	case "wordpress":
+		return "WordPress Updates"
+	default:
+		return name + " Updates"
+	}
+}
+
+// PriorityIndicator returns a visual indicator for an update's priority.
+func PriorityIndicator(u checker.Update, useEmoji bool) string {
+	if !useEmoji {
+		if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
+			return "[!]"
+		}
+		return "[-]"
+	}
+	if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
+		return "\U0001f534" // 🔴
+	}
+	return "\u26aa" // ⚪
+}
+
+// FormatUpdatesMarkdown formats updates as markdown lines.
+func FormatUpdatesMarkdown(r *checker.CheckResult, useEmoji bool) string {
+	if len(r.Updates) == 0 {
+		return ""
+	}
+
+	if r.CheckerName == "wordpress" {
+		return formatWordPressUpdatesMarkdown(r.Updates, useEmoji)
+	}
+
+	var lines []string
+	shown := 0
+	for _, u := range r.Updates {
+		if shown >= MaxUpdatesPerSection {
+			lines = append(lines, fmt.Sprintf("_...and %d more_", len(r.Updates)-MaxUpdatesPerSection))
+			break
+		}
+		indicator := PriorityIndicator(u, useEmoji)
+		line := fmt.Sprintf("%s `%s` %s \u2192 %s", indicator, u.Name, u.CurrentVersion, u.NewVersion)
+		if u.Type == checker.UpdateTypeSecurity {
+			line += " _(security)_"
+		}
+		if u.Source != "" {
+			line += fmt.Sprintf(" (%s)", u.Source)
+		}
+		lines = append(lines, line)
+		shown++
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func formatWordPressUpdatesMarkdown(updates []checker.Update, useEmoji bool) string {
+	grouped := make(map[string][]checker.Update)
+	var order []string
+	for _, u := range updates {
+		if _, exists := grouped[u.Source]; !exists {
+			order = append(order, u.Source)
+		}
+		grouped[u.Source] = append(grouped[u.Source], u)
+	}
+
+	var sections []string
+	for _, source := range order {
+		siteUpdates := grouped[source]
+		lines := []string{fmt.Sprintf("**%s**", source)}
+		shown := 0
+		for _, u := range siteUpdates {
+			if shown >= MaxUpdatesPerSection {
+				lines = append(lines, fmt.Sprintf("_...and %d more_", len(siteUpdates)-MaxUpdatesPerSection))
+				break
+			}
+			indicator := PriorityIndicator(u, useEmoji)
+			typeName := strings.ToUpper(u.Type[:1]) + u.Type[1:]
+			line := fmt.Sprintf("%s %s: `%s` %s \u2192 %s", indicator, typeName, u.Name, u.CurrentVersion, u.NewVersion)
+			if u.Type == checker.UpdateTypeSecurity {
+				line += " _(security)_"
+			}
+			lines = append(lines, line)
+			shown++
+		}
+		sections = append(sections, strings.Join(lines, "\n"))
+	}
+
+	return strings.Join(sections, "\n\n")
+}
+
+// FormatUpdatesPlainText formats updates as plain text lines.
+func FormatUpdatesPlainText(r *checker.CheckResult) string {
+	if len(r.Updates) == 0 {
+		return ""
+	}
+
+	if r.CheckerName == "wordpress" {
+		return formatWordPressUpdatesPlainText(r.Updates)
+	}
+
+	var lines []string
+	shown := 0
+	for _, u := range r.Updates {
+		if shown >= MaxUpdatesPerSection {
+			lines = append(lines, fmt.Sprintf("  ...and %d more", len(r.Updates)-MaxUpdatesPerSection))
+			break
+		}
+		indicator := "[!]"
+		if u.Type != checker.UpdateTypeSecurity && u.Priority != checker.PriorityCritical {
+			indicator = "[-]"
+		}
+		line := fmt.Sprintf("  %s %s %s -> %s", indicator, u.Name, u.CurrentVersion, u.NewVersion)
+		if u.Type == checker.UpdateTypeSecurity {
+			line += " (security)"
+		}
+		if u.Source != "" {
+			line += fmt.Sprintf(" (%s)", u.Source)
+		}
+		lines = append(lines, line)
+		shown++
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+func formatWordPressUpdatesPlainText(updates []checker.Update) string {
+	grouped := make(map[string][]checker.Update)
+	var order []string
+	for _, u := range updates {
+		if _, exists := grouped[u.Source]; !exists {
+			order = append(order, u.Source)
+		}
+		grouped[u.Source] = append(grouped[u.Source], u)
+	}
+
+	var sections []string
+	for _, source := range order {
+		siteUpdates := grouped[source]
+		lines := []string{fmt.Sprintf("  %s:", source)}
+		shown := 0
+		for _, u := range siteUpdates {
+			if shown >= MaxUpdatesPerSection {
+				lines = append(lines, fmt.Sprintf("    ...and %d more", len(siteUpdates)-MaxUpdatesPerSection))
+				break
+			}
+			indicator := "[!]"
+			if u.Type != checker.UpdateTypeSecurity && u.Priority != checker.PriorityCritical {
+				indicator = "[-]"
+			}
+			typeName := strings.ToUpper(u.Type[:1]) + u.Type[1:]
+			line := fmt.Sprintf("    %s %s: %s %s -> %s", indicator, typeName, u.Name, u.CurrentVersion, u.NewVersion)
+			if u.Type == checker.UpdateTypeSecurity {
+				line += " (security)"
+			}
+			lines = append(lines, line)
+			shown++
+		}
+		sections = append(sections, strings.Join(lines, "\n"))
+	}
+
+	return strings.Join(sections, "\n\n")
+}

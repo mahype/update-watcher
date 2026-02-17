@@ -28,8 +28,8 @@ var setupCmd = &cobra.Command{
 				return fmt.Errorf("failed to save config: %w", saveErr)
 			}
 			fmt.Printf("\nConfiguration saved to %s\n", cfgPath)
-			fmt.Println("\nRunning test check (dry-run)...")
-			rootCmd.SetArgs([]string{"run", "--dry-run"})
+			fmt.Println("\nRunning test check...")
+			rootCmd.SetArgs([]string{"run"})
 			return rootCmd.Execute()
 		}
 		if err != nil {
