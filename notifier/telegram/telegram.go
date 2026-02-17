@@ -144,23 +144,20 @@ func formatUpdatesHTML(r *checker.CheckResult) string {
 	}
 
 	var lines []string
-	shown := 0
 	for _, u := range r.Updates {
-		if shown >= formatting.MaxUpdatesPerSection {
-			lines = append(lines, fmt.Sprintf("<i>...and %d more</i>", len(r.Updates)-formatting.MaxUpdatesPerSection))
-			break
-		}
 		indicator := formatting.PriorityIndicator(u, true)
-		line := fmt.Sprintf("%s <code>%s</code> %s \u2192 %s",
-			indicator, html.EscapeString(u.Name), html.EscapeString(u.CurrentVersion), html.EscapeString(u.NewVersion))
+		var line string
 		if u.Type == checker.UpdateTypeSecurity {
-			line += " <i>(security)</i>"
+			line = fmt.Sprintf("%s <b><code>%s</code></b> %s \u2192 %s \u26a0\ufe0f <b>SECURITY</b>",
+				indicator, html.EscapeString(u.Name), html.EscapeString(u.CurrentVersion), html.EscapeString(u.NewVersion))
+		} else {
+			line = fmt.Sprintf("%s <code>%s</code> %s \u2192 %s",
+				indicator, html.EscapeString(u.Name), html.EscapeString(u.CurrentVersion), html.EscapeString(u.NewVersion))
 		}
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", html.EscapeString(u.Source))
 		}
 		lines = append(lines, line)
-		shown++
 	}
 
 	return strings.Join(lines, "\n")
@@ -180,21 +177,18 @@ func formatWordPressUpdatesHTML(updates []checker.Update) string {
 	for _, source := range order {
 		siteUpdates := grouped[source]
 		lines := []string{fmt.Sprintf("<b>%s</b>", html.EscapeString(source))}
-		shown := 0
 		for _, u := range siteUpdates {
-			if shown >= formatting.MaxUpdatesPerSection {
-				lines = append(lines, fmt.Sprintf("<i>...and %d more</i>", len(siteUpdates)-formatting.MaxUpdatesPerSection))
-				break
-			}
 			indicator := formatting.PriorityIndicator(u, true)
 			typeName := strings.ToUpper(u.Type[:1]) + u.Type[1:]
-			line := fmt.Sprintf("%s %s: <code>%s</code> %s \u2192 %s",
-				indicator, typeName, html.EscapeString(u.Name), html.EscapeString(u.CurrentVersion), html.EscapeString(u.NewVersion))
+			var line string
 			if u.Type == checker.UpdateTypeSecurity {
-				line += " <i>(security)</i>"
+				line = fmt.Sprintf("%s %s: <b><code>%s</code></b> %s \u2192 %s \u26a0\ufe0f <b>SECURITY</b>",
+					indicator, typeName, html.EscapeString(u.Name), html.EscapeString(u.CurrentVersion), html.EscapeString(u.NewVersion))
+			} else {
+				line = fmt.Sprintf("%s %s: <code>%s</code> %s \u2192 %s",
+					indicator, typeName, html.EscapeString(u.Name), html.EscapeString(u.CurrentVersion), html.EscapeString(u.NewVersion))
 			}
 			lines = append(lines, line)
-			shown++
 		}
 		sections = append(sections, strings.Join(lines, "\n"))
 	}

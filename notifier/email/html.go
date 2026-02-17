@@ -95,18 +95,7 @@ func writeUpdatesTable(b *strings.Builder, r *checker.CheckResult) {
 	}
 	b.WriteString("<th>Package</th><th>Current</th><th>New</th><th>Type</th></tr>\n")
 
-	shown := 0
 	for _, u := range r.Updates {
-		if shown >= formatting.MaxUpdatesPerSection {
-			colspan := 4
-			if isWP {
-				colspan = 6
-			}
-			b.WriteString(fmt.Sprintf("    <tr><td colspan=\"%d\"><em>...and %d more</em></td></tr>\n",
-				colspan, len(r.Updates)-formatting.MaxUpdatesPerSection))
-			break
-		}
-
 		rowClass := ""
 		if u.Type == checker.UpdateTypeSecurity {
 			rowClass = ` class="security"`
@@ -118,20 +107,20 @@ func writeUpdatesTable(b *strings.Builder, r *checker.CheckResult) {
 			typeName := strings.ToUpper(u.Type[:1]) + u.Type[1:]
 			b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(typeName)))
 		}
-		b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(u.Name)))
+		if u.Type == checker.UpdateTypeSecurity {
+			b.WriteString(fmt.Sprintf("<td><strong>%s</strong></td>", html.EscapeString(u.Name)))
+		} else {
+			b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(u.Name)))
+		}
 		b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(u.CurrentVersion)))
 		b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(u.NewVersion)))
 
-		typeLabel := u.Type
 		if u.Type == checker.UpdateTypeSecurity {
-			typeLabel = fmt.Sprintf(`<span class="type-badge">%s</span>`, html.EscapeString(u.Type))
+			b.WriteString(fmt.Sprintf(`<td><span class="type-badge">⚠️ %s</span></td>`, html.EscapeString(u.Type)))
 		} else {
-			typeLabel = html.EscapeString(u.Type)
+			b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(u.Type)))
 		}
-		b.WriteString(fmt.Sprintf("<td>%s</td>", typeLabel))
 		b.WriteString("</tr>\n")
-
-		shown++
 	}
 
 	b.WriteString("  </table>\n")

@@ -1,5 +1,6 @@
 bin/
 dist/
+update-watcher
 coverage.out
 *.exe
 *.dll

@@ -46,7 +46,11 @@ func printCheckerResult(r *checker.CheckResult) {
 			if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
 				marker = "!"
 			}
-			fmt.Printf("  [%s] %-30s %s -> %s\n", marker, u.Name, u.CurrentVersion, u.NewVersion)
+			if u.Type == checker.UpdateTypeSecurity {
+				fmt.Printf("  [%s] %-30s %s -> %s  [SECURITY]\n", marker, u.Name, u.CurrentVersion, u.NewVersion)
+			} else {
+				fmt.Printf("  [%s] %-30s %s -> %s\n", marker, u.Name, u.CurrentVersion, u.NewVersion)
+			}
 		}
 	}
 
@@ -70,7 +74,11 @@ func printWordPressUpdates(updates []checker.Update) {
 			if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
 				marker = "!"
 			}
-			fmt.Printf("    [%s] %-10s %-25s %s -> %s\n", marker, u.Type, u.Name, u.CurrentVersion, u.NewVersion)
+			if u.Type == checker.UpdateTypeSecurity {
+				fmt.Printf("    [%s] %-10s %-25s %s -> %s  [SECURITY]\n", marker, u.Type, u.Name, u.CurrentVersion, u.NewVersion)
+			} else {
+				fmt.Printf("    [%s] %-10s %-25s %s -> %s\n", marker, u.Type, u.Name, u.CurrentVersion, u.NewVersion)
+			}
 		}
 	}
 }

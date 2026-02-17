@@ -7,8 +7,6 @@ import (
 	"github.com/mahype/update-watcher/checker"
 )
 
-const MaxUpdatesPerSection = 10
-
 // Summary holds aggregated stats for a set of check results.
 type Summary struct {
 	TotalUpdates  int
@@ -94,22 +92,18 @@ func FormatUpdatesMarkdown(r *checker.CheckResult, useEmoji bool) string {
 	}
 
 	var lines []string
-	shown := 0
 	for _, u := range r.Updates {
-		if shown >= MaxUpdatesPerSection {
-			lines = append(lines, fmt.Sprintf("_...and %d more_", len(r.Updates)-MaxUpdatesPerSection))
-			break
-		}
 		indicator := PriorityIndicator(u, useEmoji)
-		line := fmt.Sprintf("%s `%s` %s \u2192 %s", indicator, u.Name, u.CurrentVersion, u.NewVersion)
+		var line string
 		if u.Type == checker.UpdateTypeSecurity {
-			line += " _(security)_"
+			line = fmt.Sprintf("%s **`%s`** %s \u2192 %s \u26a0\ufe0f **SECURITY**", indicator, u.Name, u.CurrentVersion, u.NewVersion)
+		} else {
+			line = fmt.Sprintf("%s `%s` %s \u2192 %s", indicator, u.Name, u.CurrentVersion, u.NewVersion)
 		}
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
 		lines = append(lines, line)
-		shown++
 	}
 
 	return strings.Join(lines, "\n")
@@ -129,20 +123,16 @@ func formatWordPressUpdatesMarkdown(updates []checker.Update, useEmoji bool) str
 	for _, source := range order {
 		siteUpdates := grouped[source]
 		lines := []string{fmt.Sprintf("**%s**", source)}
-		shown := 0
 		for _, u := range siteUpdates {
-			if shown >= MaxUpdatesPerSection {
-				lines = append(lines, fmt.Sprintf("_...and %d more_", len(siteUpdates)-MaxUpdatesPerSection))
-				break
-			}
 			indicator := PriorityIndicator(u, useEmoji)
 			typeName := strings.ToUpper(u.Type[:1]) + u.Type[1:]
-			line := fmt.Sprintf("%s %s: `%s` %s \u2192 %s", indicator, typeName, u.Name, u.CurrentVersion, u.NewVersion)
+			var line string
 			if u.Type == checker.UpdateTypeSecurity {
-				line += " _(security)_"
+				line = fmt.Sprintf("%s %s: **`%s`** %s \u2192 %s \u26a0\ufe0f **SECURITY**", indicator, typeName, u.Name, u.CurrentVersion, u.NewVersion)
+			} else {
+				line = fmt.Sprintf("%s %s: `%s` %s \u2192 %s", indicator, typeName, u.Name, u.CurrentVersion, u.NewVersion)
 			}
 			lines = append(lines, line)
-			shown++
 		}
 		sections = append(sections, strings.Join(lines, "\n"))
 	}
@@ -161,25 +151,19 @@ func FormatUpdatesPlainText(r *checker.CheckResult) string {
 	}
 
 	var lines []string
-	shown := 0
 	for _, u := range r.Updates {
-		if shown >= MaxUpdatesPerSection {
-			lines = append(lines, fmt.Sprintf("  ...and %d more", len(r.Updates)-MaxUpdatesPerSection))
-			break
-		}
 		indicator := "[!]"
 		if u.Type != checker.UpdateTypeSecurity && u.Priority != checker.PriorityCritical {
 			indicator = "[-]"
 		}
 		line := fmt.Sprintf("  %s %s %s -> %s", indicator, u.Name, u.CurrentVersion, u.NewVersion)
 		if u.Type == checker.UpdateTypeSecurity {
-			line += " (security)"
+			line += " [SECURITY]"
 		}
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
 		lines = append(lines, line)
-		shown++
 	}
 
 	return strings.Join(lines, "\n")
@@ -199,12 +183,7 @@ func formatWordPressUpdatesPlainText(updates []checker.Update) string {
 	for _, source := range order {
 		siteUpdates := grouped[source]
 		lines := []string{fmt.Sprintf("  %s:", source)}
-		shown := 0
 		for _, u := range siteUpdates {
-			if shown >= MaxUpdatesPerSection {
-				lines = append(lines, fmt.Sprintf("    ...and %d more", len(siteUpdates)-MaxUpdatesPerSection))
-				break
-			}
 			indicator := "[!]"
 			if u.Type != checker.UpdateTypeSecurity && u.Priority != checker.PriorityCritical {
 				indicator = "[-]"
@@ -212,10 +191,9 @@ func formatWordPressUpdatesPlainText(updates []checker.Update) string {
 			typeName := strings.ToUpper(u.Type[:1]) + u.Type[1:]
 			line := fmt.Sprintf("    %s %s: %s %s -> %s", indicator, typeName, u.Name, u.CurrentVersion, u.NewVersion)
 			if u.Type == checker.UpdateTypeSecurity {
-				line += " (security)"
+				line += " [SECURITY]"
 			}
 			lines = append(lines, line)
-			shown++
 		}
 		sections = append(sections, strings.Join(lines, "\n"))
 	}

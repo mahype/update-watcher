@@ -1,6 +1,7 @@
 package formatting
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -123,6 +124,12 @@ func TestBuildMarkdownMessage(t *testing.T) {
 	if !strings.Contains(body, "Security updates require attention") {
 		t.Error("body should contain security footer")
 	}
+	if !strings.Contains(body, "**SECURITY**") {
+		t.Error("body should contain bold SECURITY label for security updates")
+	}
+	if !strings.Contains(body, "**`libssl3`**") {
+		t.Error("body should contain bold package name for security updates")
+	}
 }
 
 func TestBuildMarkdownMessageNoUpdates(t *testing.T) {
@@ -155,6 +162,63 @@ func TestBuildPlainTextMessage(t *testing.T) {
 	}
 	if !strings.Contains(msg, "Security updates require attention") {
 		t.Error("message should contain security footer")
+	}
+	if !strings.Contains(msg, "[SECURITY]") {
+		t.Error("message should contain [SECURITY] label for security updates")
+	}
+}
+
+func TestFormatUpdatesMarkdownNoTruncation(t *testing.T) {
+	var updates []checker.Update
+	for i := 0; i < 25; i++ {
+		updates = append(updates, checker.Update{
+			Name:           fmt.Sprintf("pkg-%d", i),
+			CurrentVersion: "1.0",
+			NewVersion:     "2.0",
+			Type:           checker.UpdateTypeRegular,
+			Priority:       checker.PriorityNormal,
+		})
+	}
+	r := &checker.CheckResult{
+		CheckerName: "apt",
+		Updates:     updates,
+	}
+	result := FormatUpdatesMarkdown(r, true)
+
+	if strings.Contains(result, "more") {
+		t.Error("should not truncate updates")
+	}
+	for i := 0; i < 25; i++ {
+		if !strings.Contains(result, fmt.Sprintf("pkg-%d", i)) {
+			t.Errorf("should contain all updates, missing pkg-%d", i)
+		}
+	}
+}
+
+func TestFormatUpdatesPlainTextNoTruncation(t *testing.T) {
+	var updates []checker.Update
+	for i := 0; i < 25; i++ {
+		updates = append(updates, checker.Update{
+			Name:           fmt.Sprintf("pkg-%d", i),
+			CurrentVersion: "1.0",
+			NewVersion:     "2.0",
+			Type:           checker.UpdateTypeRegular,
+			Priority:       checker.PriorityNormal,
+		})
+	}
+	r := &checker.CheckResult{
+		CheckerName: "apt",
+		Updates:     updates,
+	}
+	result := FormatUpdatesPlainText(r)
+
+	if strings.Contains(result, "more") {
+		t.Error("should not truncate updates")
+	}
+	for i := 0; i < 25; i++ {
+		if !strings.Contains(result, fmt.Sprintf("pkg-%d", i)) {
+			t.Errorf("should contain all updates, missing pkg-%d", i)
+		}
 	}
 }
 

@@ -102,22 +102,18 @@ func formatUpdatesDiscord(r *checker.CheckResult) string {
 	}
 
 	var lines []string
-	shown := 0
 	for _, u := range r.Updates {
-		if shown >= formatting.MaxUpdatesPerSection {
-			lines = append(lines, fmt.Sprintf("*...and %d more*", len(r.Updates)-formatting.MaxUpdatesPerSection))
-			break
-		}
 		indicator := formatting.PriorityIndicator(u, true)
-		line := fmt.Sprintf("%s `%s` %s \u2192 %s", indicator, u.Name, u.CurrentVersion, u.NewVersion)
+		var line string
 		if u.Type == checker.UpdateTypeSecurity {
-			line += " *(security)*"
+			line = fmt.Sprintf("%s **`%s`** %s \u2192 %s \u26a0\ufe0f **SECURITY**", indicator, u.Name, u.CurrentVersion, u.NewVersion)
+		} else {
+			line = fmt.Sprintf("%s `%s` %s \u2192 %s", indicator, u.Name, u.CurrentVersion, u.NewVersion)
 		}
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
 		lines = append(lines, line)
-		shown++
 	}
 
 	return strings.Join(lines, "\n")
@@ -137,20 +133,16 @@ func formatWordPressUpdatesDiscord(updates []checker.Update) string {
 	for _, source := range order {
 		siteUpdates := grouped[source]
 		lines := []string{fmt.Sprintf("**%s**", source)}
-		shown := 0
 		for _, u := range siteUpdates {
-			if shown >= formatting.MaxUpdatesPerSection {
-				lines = append(lines, fmt.Sprintf("*...and %d more*", len(siteUpdates)-formatting.MaxUpdatesPerSection))
-				break
-			}
 			indicator := formatting.PriorityIndicator(u, true)
 			typeName := strings.ToUpper(u.Type[:1]) + u.Type[1:]
-			line := fmt.Sprintf("%s %s: `%s` %s \u2192 %s", indicator, typeName, u.Name, u.CurrentVersion, u.NewVersion)
+			var line string
 			if u.Type == checker.UpdateTypeSecurity {
-				line += " *(security)*"
+				line = fmt.Sprintf("%s %s: **`%s`** %s \u2192 %s \u26a0\ufe0f **SECURITY**", indicator, typeName, u.Name, u.CurrentVersion, u.NewVersion)
+			} else {
+				line = fmt.Sprintf("%s %s: `%s` %s \u2192 %s", indicator, typeName, u.Name, u.CurrentVersion, u.NewVersion)
 			}
 			lines = append(lines, line)
-			shown++
 		}
 		sections = append(sections, strings.Join(lines, "\n"))
 	}
