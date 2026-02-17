@@ -36,6 +36,7 @@ A modular CLI tool that checks for available software updates and sends notifica
 
 ### ⚙️ Other
 
+- 💡 **Update hints** — Copy-paste-ready commands shown after each checker's updates
 - 🕐 **Cron scheduling** — Built-in cron job management
 - 🧙 **Interactive setup** — Menu-driven wizard with auto-detection
 - 💻 **Multi-platform** — Linux (amd64, arm64, armv7), macOS (amd64, arm64)
@@ -187,6 +188,12 @@ watchers:
     enabled: true
     options:
       include_casks: true
+
+  - type: snap
+    enabled: true
+
+  - type: flatpak
+    enabled: true
 
   - type: docker
     enabled: true
