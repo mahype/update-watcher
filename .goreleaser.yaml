@@ -1,0 +1,61 @@
+version: 2
+
+project_name: update-watcher
+
+before:
+  hooks:
+    - go mod tidy
+    - go vet ./...
+
+builds:
+  - id: update-watcher
+    main: .
+    binary: update-watcher
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+      - arm
+    goarm:
+      - "7"
+    ldflags:
+      - >-
+        -s -w
+        -X github.com/mahype/update-watcher/internal/version.Version={{.Version}}
+        -X github.com/mahype/update-watcher/internal/version.Commit={{.Commit}}
+        -X github.com/mahype/update-watcher/internal/version.Date={{.Date}}
+    ignore:
+      - goos: darwin
+        goarch: arm
+
+archives:
+  - id: default
+    formats: ['tar.gz']
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    files:
+      - LICENSE
+      - README.md
+      - scripts/install.sh
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+release:
+  github:
+    owner: mahype
+    name: update-watcher
+  prerelease: auto
+  draft: false
