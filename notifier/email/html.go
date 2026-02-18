@@ -73,6 +73,11 @@ func BuildHTMLMessage(hostname string, results []*checker.CheckResult) string {
 `, html.EscapeString(cmd)))
 		}
 
+		if count, cmd := formatting.PhasingNote(r.CheckerName, r.Updates); count > 0 {
+			b.WriteString(fmt.Sprintf(`  <p style="margin-top: 8px; font-size: 13px; color: #92400e; background: #fffbeb; padding: 8px 12px; border-radius: 4px;">⏳ %d phased update(s) cannot be installed via regular upgrade. Use: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">%s</code></p>
+`, count, html.EscapeString(cmd)))
+		}
+
 		b.WriteString("</div>\n")
 	}
 

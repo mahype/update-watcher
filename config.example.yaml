@@ -114,6 +114,14 @@ notifiers:
       server_url: "https://gotify.example.com"
       token: "${GOTIFY_TOKEN}"
 
+  # Secrets: token
+  - type: homeassistant
+    enabled: false
+    options:
+      url: "http://homeassistant.local:8123"
+      token: "${HOMEASSISTANT_TOKEN}"
+      service: "notify"  # or e.g. mobile_app_iphone
+
   # Secrets: webhook_url
   - type: googlechat
     enabled: false

@@ -87,6 +87,16 @@ func BuildAdaptiveCard(hostname string, results []*checker.CheckResult) map[stri
 			})
 		}
 
+		if count, cmd := formatting.PhasingNote(r.CheckerName, r.Updates); count > 0 {
+			items = append(items, map[string]interface{}{
+				"type":    "TextBlock",
+				"text":    fmt.Sprintf("\u23f3 %d phased update(s) cannot be installed via regular upgrade. Use:\n`%s`", count, cmd),
+				"wrap":    true,
+				"color":   "Warning",
+				"spacing": "Small",
+			})
+		}
+
 		bodyElements = append(bodyElements, map[string]interface{}{
 			"type":      "Container",
 			"separator": true,

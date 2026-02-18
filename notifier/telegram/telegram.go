@@ -129,6 +129,10 @@ func buildHTMLMessage(hostname string, results []*checker.CheckResult) string {
 			section += fmt.Sprintf("\n\n\U0001f4a1 Update: <code>%s</code>", html.EscapeString(cmd))
 		}
 
+		if count, cmd := formatting.PhasingNote(r.CheckerName, r.Updates); count > 0 {
+			section += fmt.Sprintf("\n\u23f3 %d phased update(s) cannot be installed via regular upgrade. Use:\n<code>%s</code>", count, html.EscapeString(cmd))
+		}
+
 		parts = append(parts, section)
 	}
 

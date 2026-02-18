@@ -46,6 +46,8 @@ func CheckerEmoji(name string, useEmoji bool) string {
 		return "\U0001f4e6" // 📦
 	case "homebrew":
 		return "\U0001f37a" // 🍺
+	case "openclaw":
+		return "\U0001f43e" // 🐾
 	default:
 		return "\U0001f504" // 🔄
 	}
@@ -72,6 +74,8 @@ func CheckerDisplayName(name string) string {
 		return "WordPress Updates"
 	case "webproject":
 		return "Web Project Updates"
+	case "openclaw":
+		return "OpenClaw Updates"
 	default:
 		return name + " Updates"
 	}
@@ -103,9 +107,26 @@ func UpdateCommand(checkerName string) string {
 		return "docker pull <image>"
 	case "wordpress":
 		return "wp plugin update --all && wp theme update --all && wp core update"
+	case "openclaw":
+		return "openclaw update"
 	default:
 		return ""
 	}
+}
+
+// PhasingNote checks if any updates are phased and returns the count
+// and the command to force-install them. Returns 0 and empty string if
+// no phased updates exist or phasing is not applicable for the checker.
+func PhasingNote(checkerName string, updates []checker.Update) (count int, command string) {
+	for _, u := range updates {
+		if u.Phasing != "" {
+			count++
+		}
+	}
+	if count == 0 || checkerName != "apt" {
+		return 0, ""
+	}
+	return count, "sudo apt-get -o APT::Get::Always-Include-Phased-Updates=true upgrade"
 }
 
 // UpdateGroup holds updates grouped by a key (e.g., site name, source).

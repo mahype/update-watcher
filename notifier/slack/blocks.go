@@ -50,6 +50,10 @@ func BuildMessage(hostname string, results []*checker.CheckResult, useEmoji bool
 			sectionTitle += fmt.Sprintf("\n\n\U0001f4a1 Update: `%s`", cmd)
 		}
 
+		if count, cmd := formatting.PhasingNote(r.CheckerName, r.Updates); count > 0 {
+			sectionTitle += fmt.Sprintf("\n\u23f3 %d phased update(s) cannot be installed via regular upgrade. Use:\n`%s`", count, cmd)
+		}
+
 		blocks = append(blocks, sectionBlock(sectionTitle))
 	}
 

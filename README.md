@@ -34,6 +34,7 @@ A modular CLI tool that checks for available software updates and sends notifica
 - 📲 **ntfy** — Push notifications via [ntfy.sh](https://ntfy.sh) or self-hosted
 - 📢 **Pushover** — Push notifications for iOS, Android, Desktop
 - 🔔 **Gotify** — Push notifications via self-hosted Gotify server
+- 🏠 **Home Assistant** — Push notifications via Home Assistant notify service
 - 💬 **Google Chat** — Messages to Google Workspace spaces via webhooks
 - 🟢 **Matrix** — Messages to Matrix rooms via client-server API
 - 💬 **Mattermost** — Incoming webhook messages (Slack-compatible)
@@ -494,6 +495,13 @@ notifiers:
       server_url: "https://gotify.example.com"
       token: "AKsjdf83jsd"
 
+  - type: homeassistant
+    enabled: false
+    options:
+      url: "http://homeassistant.local:8123"
+      token: "eyJ0eXAiOiJKV1Qi..."
+      service: "notify"
+
   - type: googlechat
     enabled: false
     options:
@@ -599,6 +607,9 @@ settings:
 | `gotify` | `server_url` | Yes | Gotify server URL |
 | `gotify` | `token` | Yes | Gotify application token |
 | `gotify` | `priority` | No | Priority (0-10, default: 5) |
+| `homeassistant` | `url` | Yes | Home Assistant base URL (e.g. http://homeassistant.local:8123) |
+| `homeassistant` | `token` | Yes | Long-Lived Access Token from HA profile |
+| `homeassistant` | `service` | No | Notify service name (default: notify) |
 | `googlechat` | `webhook_url` | Yes | Google Chat webhook URL |
 | `googlechat` | `thread_key` | No | Group messages in a thread |
 | `matrix` | `homeserver` | Yes | Matrix homeserver URL (e.g. https://matrix.org) |

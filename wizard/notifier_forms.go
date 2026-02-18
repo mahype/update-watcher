@@ -18,8 +18,9 @@ var addFuncs = map[string]func(cfg *config.Config) error{
 	"teams":      addTeams,
 	"email":      addEmail,
 	"pushover":   addPushover,
-	"gotify":     addGotify,
-	"googlechat":  addGoogleChat,
+	"gotify":        addGotify,
+	"homeassistant": addHomeAssistant,
+	"googlechat":    addGoogleChat,
 	"matrix":      addMatrix,
 	"mattermost":  addMattermost,
 	"rocketchat":  addRocketChat,
@@ -37,8 +38,9 @@ var editFuncs = map[string]func(cfg *config.Config, existing *config.NotifierCon
 	"teams":      editTeams,
 	"email":      editEmail,
 	"pushover":   editPushover,
-	"gotify":     editGotify,
-	"googlechat":  editGoogleChat,
+	"gotify":        editGotify,
+	"homeassistant": editHomeAssistant,
+	"googlechat":    editGoogleChat,
 	"matrix":      editMatrix,
 	"mattermost":  editMattermost,
 	"rocketchat":  editRocketChat,
@@ -797,6 +799,80 @@ func editGotify(cfg *config.Config, existing *config.NotifierConfig) error {
 	existing.Options["token"] = token
 
 	fmt.Println("  Gotify settings updated.")
+	return nil
+}
+
+// --- Home Assistant ---
+
+func addHomeAssistant(cfg *config.Config) error {
+	var url, token string
+	service := "notify"
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Home Assistant URL").
+				Description("e.g. http://homeassistant.local:8123 (required)").
+				Value(&url),
+			huh.NewInput().
+				Title("Long-Lived Access Token").
+				Description("From HA profile page > Long-Lived Access Tokens (required)").
+				EchoMode(huh.EchoModePassword).
+				Value(&token),
+			huh.NewInput().
+				Title("Notify Service").
+				Description("Default: notify (e.g. mobile_app_iphone)").
+				Value(&service),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	options := map[string]interface{}{
+		"url":     url,
+		"token":   token,
+		"service": service,
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
+		Type:    "homeassistant",
+		Enabled: true,
+		Options: options,
+	})
+
+	fmt.Println("  Home Assistant notifier added.")
+	return nil
+}
+
+func editHomeAssistant(cfg *config.Config, existing *config.NotifierConfig) error {
+	url := existing.Options.GetString("url", "")
+	token := existing.Options.GetString("token", "")
+	service := existing.Options.GetString("service", "notify")
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Home Assistant URL").
+				Value(&url),
+			huh.NewInput().
+				Title("Long-Lived Access Token").
+				EchoMode(huh.EchoModePassword).
+				Value(&token),
+			huh.NewInput().
+				Title("Notify Service").
+				Value(&service),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	existing.Options["url"] = url
+	existing.Options["token"] = token
+	existing.Options["service"] = service
+
+	fmt.Println("  Home Assistant settings updated.")
 	return nil
 }
 

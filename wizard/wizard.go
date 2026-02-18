@@ -1,14 +1,17 @@
 package wizard
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/huh"
+	"github.com/mahype/update-watcher/checker"
 	"github.com/mahype/update-watcher/checker/webproject"
 	"github.com/mahype/update-watcher/checker/wordpress"
 	"github.com/mahype/update-watcher/config"
@@ -35,13 +38,122 @@ func sudoDescription(command string) string {
 	return desc
 }
 
+func sendTestNotification(cfg *config.Config) {
+	// Collect enabled notifiers
+	var enabled []config.NotifierConfig
+	for _, n := range cfg.Notifiers {
+		if n.Enabled {
+			enabled = append(enabled, n)
+		}
+	}
+
+	if len(enabled) == 0 {
+		fmt.Println("  No enabled notifiers configured.")
+		return
+	}
+
+	// Build selection options
+	var selected string
+	var options []huh.Option[string]
+
+	if len(enabled) > 1 {
+		options = append(options, huh.NewOption("All notifiers", "__all__"))
+	}
+	for _, n := range enabled {
+		meta, ok := notifier.GetMeta(n.Type)
+		label := n.Type
+		if ok {
+			label = meta.DisplayName
+		}
+		options = append(options, huh.NewOption(label, n.Type))
+	}
+
+	if len(enabled) == 1 {
+		selected = enabled[0].Type
+	} else {
+		err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Send test notification to:").
+					Options(options...).
+					Value(&selected),
+			),
+		).Run()
+		if err != nil {
+			return
+		}
+	}
+
+	// Build test data
+	testResults := []*checker.CheckResult{
+		{
+			CheckerName: "test",
+			Summary:     "2 packages (1 security) — test notification",
+			CheckedAt:   time.Now(),
+			Updates: []checker.Update{
+				{
+					Name:           "example-package",
+					CurrentVersion: "1.0.0",
+					NewVersion:     "1.1.0",
+					Type:           checker.UpdateTypeRegular,
+				},
+				{
+					Name:           "libsecurity-example",
+					CurrentVersion: "2.0.0",
+					NewVersion:     "2.0.1",
+					Type:           checker.UpdateTypeSecurity,
+					Priority:       checker.PriorityHigh,
+				},
+			},
+		},
+	}
+
+	// Determine which notifiers to send to
+	var targets []config.NotifierConfig
+	if selected == "__all__" {
+		targets = enabled
+	} else {
+		for _, n := range enabled {
+			if n.Type == selected {
+				targets = append(targets, n)
+				break
+			}
+		}
+	}
+
+	// Send test notification(s)
+	ctx := context.Background()
+	for _, nCfg := range targets {
+		meta, ok := notifier.GetMeta(nCfg.Type)
+		label := nCfg.Type
+		if ok {
+			label = meta.DisplayName
+		}
+
+		n, err := notifier.Create(nCfg.Type, nCfg)
+		if err != nil {
+			fmt.Printf("  [!] %s: failed to create notifier: %s\n", label, err)
+			continue
+		}
+
+		fmt.Printf("  Sending to %s...", label)
+		if err := n.Send(ctx, cfg.Hostname, testResults); err != nil {
+			fmt.Printf(" failed: %s\n", err)
+		} else {
+			fmt.Println(" OK")
+		}
+	}
+	fmt.Println()
+}
+
 const (
 	menuWatchers      = "watchers"
 	menuNotifications = "notifications"
 	menuSettings      = "settings"
 	menuCron          = "cron"
-	menuTestRun       = "test"
-	menuSaveExit      = "save"
+	menuTestRun          = "test"
+	menuTestNotification = "test-notification"
+	menuSaveExit         = "save"
 )
 
 // Run launches the interactive setup wizard.
@@ -90,6 +202,8 @@ func Run(cfg *config.Config) (*config.Config, error) {
 			}
 		case menuTestRun:
 			return cfg, errTestRun
+		case menuTestNotification:
+			sendTestNotification(cfg)
 		case menuSaveExit:
 			return cfg, nil
 		}
@@ -175,14 +289,20 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 		cronLabel += " (not installed)"
 	}
 
-	return []huh.Option[string]{
+	opts := []huh.Option[string]{
 		huh.NewOption(watcherLabel, menuWatchers),
 		huh.NewOption(notifLabel, menuNotifications),
 		huh.NewOption(settingsLabel, menuSettings),
 		huh.NewOption(cronLabel, menuCron),
 		huh.NewOption("Run Test Check", menuTestRun),
-		huh.NewOption("Save & Exit", menuSaveExit),
 	}
+
+	if len(cfg.Notifiers) > 0 {
+		opts = append(opts, huh.NewOption("Send Test Notification", menuTestNotification))
+	}
+
+	opts = append(opts, huh.NewOption("Save & Exit", menuSaveExit))
+	return opts
 }
 
 func printStatus(cfg *config.Config) {
@@ -305,6 +425,13 @@ func manageWatchers(cfg *config.Config) error {
 				fmt.Printf("    [✓] Snap (%s)\n", status)
 			case "flatpak":
 				fmt.Printf("    [✓] Flatpak (%s)\n", status)
+			case "openclaw":
+				ch := w.GetString("channel", "")
+				if ch != "" {
+					fmt.Printf("    [✓] OpenClaw (%s, channel: %s)\n", status, ch)
+				} else {
+					fmt.Printf("    [✓] OpenClaw (%s)\n", status)
+				}
 			}
 		}
 		fmt.Println()
@@ -341,10 +468,13 @@ func manageWatchers(cfg *config.Config) error {
 		if isToolAvailable("docker") {
 			options = append(options, huh.NewOption("Add Docker watcher", "add-docker"))
 		}
-		// WordPress is always available (environment detection handles tool requirements).
-		options = append(options, huh.NewOption("Add WordPress site", "add-wordpress"))
+		if isToolAvailable("openclaw") {
+			options = append(options, huh.NewOption("Add OpenClaw watcher", "add-openclaw"))
+		}
 		// Web projects are always available.
 		options = append(options, huh.NewOption("Add Web Project", "add-webproject"))
+		// WordPress is always available (environment detection handles tool requirements).
+		options = append(options, huh.NewOption("Add WordPress site", "add-wordpress"))
 		if len(cfg.Watchers) > 0 {
 			options = append(options, huh.NewOption("Remove a watcher", "remove"))
 		}
@@ -384,6 +514,8 @@ func manageWatchers(cfg *config.Config) error {
 			addFlatpakWatcher(cfg)
 		case "add-docker":
 			addDockerWatcher(cfg)
+		case "add-openclaw":
+			addOpenClawWatcher(cfg)
 		case "add-wordpress":
 			addWordPressSite(cfg)
 		case "add-webproject":
@@ -639,6 +771,43 @@ func addFlatpakWatcher(cfg *config.Config) {
 		Options: map[string]interface{}{},
 	})
 	fmt.Println("  Flatpak watcher configured.")
+}
+
+func addOpenClawWatcher(cfg *config.Config) {
+	channel := ""
+
+	// Pre-fill from existing
+	for _, w := range cfg.Watchers {
+		if w.Type == "openclaw" {
+			channel = w.GetString("channel", "")
+			break
+		}
+	}
+
+	huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Update channel").
+				Description("Which OpenClaw update channel to monitor").
+				Options(
+					huh.NewOption("Stable (default)", ""),
+					huh.NewOption("Beta", "beta"),
+					huh.NewOption("Dev", "dev"),
+				).
+				Value(&channel),
+		),
+	).Run()
+
+	opts := map[string]interface{}{}
+	if channel != "" {
+		opts["channel"] = channel
+	}
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "openclaw",
+		Enabled: true,
+		Options: opts,
+	})
+	fmt.Println("  OpenClaw watcher configured.")
 }
 
 func addDockerWatcher(cfg *config.Config) {
