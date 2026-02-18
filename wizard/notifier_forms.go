@@ -19,7 +19,12 @@ var addFuncs = map[string]func(cfg *config.Config) error{
 	"email":      addEmail,
 	"pushover":   addPushover,
 	"gotify":     addGotify,
-	"googlechat": addGoogleChat,
+	"googlechat":  addGoogleChat,
+	"matrix":      addMatrix,
+	"mattermost":  addMattermost,
+	"rocketchat":  addRocketChat,
+	"pagerduty":   addPagerDuty,
+	"pushbullet":  addPushbullet,
 }
 
 // editFuncs maps notifier types to their edit-configuration functions.
@@ -33,7 +38,12 @@ var editFuncs = map[string]func(cfg *config.Config, existing *config.NotifierCon
 	"email":      editEmail,
 	"pushover":   editPushover,
 	"gotify":     editGotify,
-	"googlechat": editGoogleChat,
+	"googlechat":  editGoogleChat,
+	"matrix":      editMatrix,
+	"mattermost":  editMattermost,
+	"rocketchat":  editRocketChat,
+	"pagerduty":   editPagerDuty,
+	"pushbullet":  editPushbullet,
 }
 
 // --- Slack ---
@@ -865,5 +875,414 @@ func editGoogleChat(cfg *config.Config, existing *config.NotifierConfig) error {
 	}
 
 	fmt.Println("  Google Chat settings updated.")
+	return nil
+}
+
+// --- Matrix ---
+
+func addMatrix(cfg *config.Config) error {
+	var homeserver, accessToken, roomID string
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Homeserver URL").
+				Description("e.g. https://matrix.org (required)").
+				Value(&homeserver),
+			huh.NewInput().
+				Title("Access Token").
+				Description("Bot access token (required)").
+				Value(&accessToken),
+			huh.NewInput().
+				Title("Room ID").
+				Description("e.g. !abc123:matrix.org (required)").
+				Value(&roomID),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	options := map[string]interface{}{
+		"homeserver":   homeserver,
+		"access_token": accessToken,
+		"room_id":      roomID,
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
+		Type:    "matrix",
+		Enabled: true,
+		Options: options,
+	})
+
+	fmt.Println("  Matrix notifier added.")
+	return nil
+}
+
+func editMatrix(cfg *config.Config, existing *config.NotifierConfig) error {
+	opts := config.WatcherConfig{Options: existing.Options}
+	homeserver := opts.GetString("homeserver", "")
+	accessToken := opts.GetString("access_token", "")
+	roomID := opts.GetString("room_id", "")
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Homeserver URL").
+				Value(&homeserver),
+			huh.NewInput().
+				Title("Access Token").
+				Value(&accessToken),
+			huh.NewInput().
+				Title("Room ID").
+				Value(&roomID),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	existing.Options["homeserver"] = homeserver
+	existing.Options["access_token"] = accessToken
+	existing.Options["room_id"] = roomID
+
+	fmt.Println("  Matrix settings updated.")
+	return nil
+}
+
+// --- Mattermost ---
+
+func addMattermost(cfg *config.Config) error {
+	var webhookURL, channel, iconURL string
+	username := "Update Watcher"
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Mattermost Webhook URL").
+				Description("Main Menu > Integrations > Incoming Webhooks (required)").
+				Value(&webhookURL),
+			huh.NewInput().
+				Title("Channel").
+				Description("Override channel (leave empty for webhook default)").
+				Value(&channel),
+			huh.NewInput().
+				Title("Username").
+				Description("Bot display name").
+				Value(&username),
+			huh.NewInput().
+				Title("Icon URL").
+				Description("Bot avatar URL (leave empty for default)").
+				Value(&iconURL),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	options := map[string]interface{}{
+		"webhook_url": webhookURL,
+		"username":    username,
+	}
+	if channel != "" {
+		options["channel"] = channel
+	}
+	if iconURL != "" {
+		options["icon_url"] = iconURL
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
+		Type:    "mattermost",
+		Enabled: true,
+		Options: options,
+	})
+
+	fmt.Println("  Mattermost notifier added.")
+	return nil
+}
+
+func editMattermost(cfg *config.Config, existing *config.NotifierConfig) error {
+	opts := config.WatcherConfig{Options: existing.Options}
+	webhookURL := opts.GetString("webhook_url", "")
+	channel := opts.GetString("channel", "")
+	username := opts.GetString("username", "Update Watcher")
+	iconURL := opts.GetString("icon_url", "")
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Mattermost Webhook URL").
+				Value(&webhookURL),
+			huh.NewInput().
+				Title("Channel").
+				Description("Leave empty for webhook default").
+				Value(&channel),
+			huh.NewInput().
+				Title("Username").
+				Value(&username),
+			huh.NewInput().
+				Title("Icon URL").
+				Description("Leave empty for default").
+				Value(&iconURL),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	existing.Options["webhook_url"] = webhookURL
+	existing.Options["username"] = username
+	if channel != "" {
+		existing.Options["channel"] = channel
+	} else {
+		delete(existing.Options, "channel")
+	}
+	if iconURL != "" {
+		existing.Options["icon_url"] = iconURL
+	} else {
+		delete(existing.Options, "icon_url")
+	}
+
+	fmt.Println("  Mattermost settings updated.")
+	return nil
+}
+
+// --- Rocket.Chat ---
+
+func addRocketChat(cfg *config.Config) error {
+	var webhookURL, channel string
+	username := "Update Watcher"
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Rocket.Chat Webhook URL").
+				Description("Administration > Integrations > Incoming (required)").
+				Value(&webhookURL),
+			huh.NewInput().
+				Title("Channel").
+				Description("e.g. #general (leave empty for webhook default)").
+				Value(&channel),
+			huh.NewInput().
+				Title("Username").
+				Description("Bot display name").
+				Value(&username),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	options := map[string]interface{}{
+		"webhook_url": webhookURL,
+		"username":    username,
+	}
+	if channel != "" {
+		options["channel"] = channel
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
+		Type:    "rocketchat",
+		Enabled: true,
+		Options: options,
+	})
+
+	fmt.Println("  Rocket.Chat notifier added.")
+	return nil
+}
+
+func editRocketChat(cfg *config.Config, existing *config.NotifierConfig) error {
+	opts := config.WatcherConfig{Options: existing.Options}
+	webhookURL := opts.GetString("webhook_url", "")
+	channel := opts.GetString("channel", "")
+	username := opts.GetString("username", "Update Watcher")
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Rocket.Chat Webhook URL").
+				Value(&webhookURL),
+			huh.NewInput().
+				Title("Channel").
+				Description("Leave empty for webhook default").
+				Value(&channel),
+			huh.NewInput().
+				Title("Username").
+				Value(&username),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	existing.Options["webhook_url"] = webhookURL
+	existing.Options["username"] = username
+	if channel != "" {
+		existing.Options["channel"] = channel
+	} else {
+		delete(existing.Options, "channel")
+	}
+
+	fmt.Println("  Rocket.Chat settings updated.")
+	return nil
+}
+
+// --- PagerDuty ---
+
+func addPagerDuty(cfg *config.Config) error {
+	var routingKey string
+	severity := "warning"
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Routing Key").
+				Description("Events API v2 integration key (required)").
+				Value(&routingKey),
+			huh.NewSelect[string]().
+				Title("Default Severity").
+				Options(
+					huh.NewOption("Info", "info"),
+					huh.NewOption("Warning", "warning"),
+					huh.NewOption("Error", "error"),
+					huh.NewOption("Critical", "critical"),
+				).
+				Value(&severity),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	options := map[string]interface{}{
+		"routing_key": routingKey,
+		"severity":    severity,
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
+		Type:    "pagerduty",
+		Enabled: true,
+		Options: options,
+	})
+
+	fmt.Println("  PagerDuty notifier added.")
+	return nil
+}
+
+func editPagerDuty(cfg *config.Config, existing *config.NotifierConfig) error {
+	opts := config.WatcherConfig{Options: existing.Options}
+	routingKey := opts.GetString("routing_key", "")
+	severity := opts.GetString("severity", "warning")
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Routing Key").
+				Value(&routingKey),
+			huh.NewSelect[string]().
+				Title("Default Severity").
+				Options(
+					huh.NewOption("Info", "info"),
+					huh.NewOption("Warning", "warning"),
+					huh.NewOption("Error", "error"),
+					huh.NewOption("Critical", "critical"),
+				).
+				Value(&severity),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	existing.Options["routing_key"] = routingKey
+	existing.Options["severity"] = severity
+
+	fmt.Println("  PagerDuty settings updated.")
+	return nil
+}
+
+// --- Pushbullet ---
+
+func addPushbullet(cfg *config.Config) error {
+	var accessToken, deviceIden, channelTag string
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Access Token").
+				Description("From https://www.pushbullet.com/#settings/account (required)").
+				Value(&accessToken),
+			huh.NewInput().
+				Title("Device Iden").
+				Description("Send to specific device only (leave empty for all)").
+				Value(&deviceIden),
+			huh.NewInput().
+				Title("Channel Tag").
+				Description("Send to a Pushbullet channel (leave empty for none)").
+				Value(&channelTag),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	options := map[string]interface{}{
+		"access_token": accessToken,
+	}
+	if deviceIden != "" {
+		options["device_iden"] = deviceIden
+	}
+	if channelTag != "" {
+		options["channel_tag"] = channelTag
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
+		Type:    "pushbullet",
+		Enabled: true,
+		Options: options,
+	})
+
+	fmt.Println("  Pushbullet notifier added.")
+	return nil
+}
+
+func editPushbullet(cfg *config.Config, existing *config.NotifierConfig) error {
+	opts := config.WatcherConfig{Options: existing.Options}
+	accessToken := opts.GetString("access_token", "")
+	deviceIden := opts.GetString("device_iden", "")
+	channelTag := opts.GetString("channel_tag", "")
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Access Token").
+				Value(&accessToken),
+			huh.NewInput().
+				Title("Device Iden").
+				Description("Leave empty for all devices").
+				Value(&deviceIden),
+			huh.NewInput().
+				Title("Channel Tag").
+				Description("Leave empty for none").
+				Value(&channelTag),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	existing.Options["access_token"] = accessToken
+	if deviceIden != "" {
+		existing.Options["device_iden"] = deviceIden
+	} else {
+		delete(existing.Options, "device_iden")
+	}
+	if channelTag != "" {
+		existing.Options["channel_tag"] = channelTag
+	} else {
+		delete(existing.Options, "channel_tag")
+	}
+
+	fmt.Println("  Pushbullet settings updated.")
 	return nil
 }

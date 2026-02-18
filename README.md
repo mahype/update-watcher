@@ -35,6 +35,11 @@ A modular CLI tool that checks for available software updates and sends notifica
 - 📢 **Pushover** — Push notifications for iOS, Android, Desktop
 - 🔔 **Gotify** — Push notifications via self-hosted Gotify server
 - 💬 **Google Chat** — Messages to Google Workspace spaces via webhooks
+- 🟢 **Matrix** — Messages to Matrix rooms via client-server API
+- 💬 **Mattermost** — Incoming webhook messages (Slack-compatible)
+- 🚀 **Rocket.Chat** — Incoming webhook messages
+- 🚨 **PagerDuty** — Incident triggers via Events API v2
+- 📌 **Pushbullet** — Push notifications to all devices
 - 🌐 **Webhook** — JSON payloads to any HTTP endpoint
 
 ### ⚙️ Other
@@ -294,6 +299,36 @@ notifiers:
     options:
       webhook_url: "https://chat.googleapis.com/v1/spaces/AAAA/messages?key=xxx&token=yyy"
 
+  - type: matrix
+    enabled: false
+    options:
+      homeserver: "https://matrix.org"
+      access_token: "syt_bot_token_here"
+      room_id: "!abc123:matrix.org"
+
+  - type: mattermost
+    enabled: false
+    options:
+      webhook_url: "https://mattermost.example.com/hooks/xxx"
+      username: "Update Watcher"
+
+  - type: rocketchat
+    enabled: false
+    options:
+      webhook_url: "https://rocket.example.com/hooks/xxx"
+      username: "Update Watcher"
+
+  - type: pagerduty
+    enabled: false
+    options:
+      routing_key: "R0123456789ABCDEF"
+      severity: "warning"
+
+  - type: pushbullet
+    enabled: false
+    options:
+      access_token: "o.ABCDEF123456"
+
   - type: webhook
     enabled: false
     options:
@@ -366,6 +401,21 @@ settings:
 | `gotify` | `priority` | No | Priority (0-10, default: 5) |
 | `googlechat` | `webhook_url` | Yes | Google Chat webhook URL |
 | `googlechat` | `thread_key` | No | Group messages in a thread |
+| `matrix` | `homeserver` | Yes | Matrix homeserver URL (e.g. https://matrix.org) |
+| `matrix` | `access_token` | Yes | Bot access token |
+| `matrix` | `room_id` | Yes | Room ID (e.g. !abc123:matrix.org) |
+| `mattermost` | `webhook_url` | Yes | Mattermost incoming webhook URL |
+| `mattermost` | `channel` | No | Override channel |
+| `mattermost` | `username` | No | Bot display name (default: Update Watcher) |
+| `mattermost` | `icon_url` | No | Bot avatar URL |
+| `rocketchat` | `webhook_url` | Yes | Rocket.Chat incoming webhook URL |
+| `rocketchat` | `channel` | No | Override channel |
+| `rocketchat` | `username` | No | Bot display name (default: Update Watcher) |
+| `pagerduty` | `routing_key` | Yes | Events API v2 integration key |
+| `pagerduty` | `severity` | No | Default severity (info/warning/error/critical, default: warning) |
+| `pushbullet` | `access_token` | Yes | Pushbullet access token |
+| `pushbullet` | `device_iden` | No | Send to specific device only |
+| `pushbullet` | `channel_tag` | No | Send to a Pushbullet channel |
 | `webhook` | `url` | Yes | Target URL |
 | `webhook` | `method` | No | HTTP method (default: POST) |
 | `webhook` | `content_type` | No | Content-Type header |
