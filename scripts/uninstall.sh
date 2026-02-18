@@ -23,6 +23,32 @@ info()  { echo "  [*] $*"; }
 warn()  { echo "  [!] $*"; }
 error() { echo "  [!] $*" >&2; }
 
+# Run command as root: directly if already root, via sudo otherwise
+run_root() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    else
+        sudo "$@"
+    fi
+}
+
+# Check that we can run privileged commands
+require_root() {
+    if [ "$(id -u)" -eq 0 ]; then
+        return 0
+    fi
+    if ! command -v sudo &>/dev/null; then
+        error "This operation requires root privileges, but sudo is not installed."
+        error "Please run this script as root."
+        exit 1
+    fi
+    if ! sudo -v 2>/dev/null; then
+        error "This operation requires root privileges, but sudo authentication failed."
+        error "Please run this script as root or ensure your user has sudo access."
+        exit 1
+    fi
+}
+
 confirm() {
     local prompt="$1"
     if [ "$AUTO_YES" = true ]; then
@@ -99,14 +125,17 @@ if ! confirm "Remove all listed components?"; then
     exit 0
 fi
 
+# Verify root/sudo access before starting removal
+require_root
+
 echo ""
 
 # --- Remove cron job ---
 
 if [ "$HAS_SERVICE_USER" = true ]; then
-    if sudo crontab -u "$SERVICE_USER" -l &>/dev/null 2>&1; then
+    if run_root crontab -u "$SERVICE_USER" -l &>/dev/null 2>&1; then
         info "Removing cron job for user '${SERVICE_USER}'..."
-        sudo crontab -u "$SERVICE_USER" -r 2>/dev/null || true
+        run_root crontab -u "$SERVICE_USER" -r 2>/dev/null || true
     fi
 elif [ "$HAS_BINARY" = true ]; then
     # Try removing cron via the binary itself
@@ -121,7 +150,7 @@ fi
 
 if [ "$HAS_BINARY" = true ]; then
     info "Removing binary ${INSTALL_DIR}/${BINARY_NAME}..."
-    sudo rm -f "${INSTALL_DIR}/${BINARY_NAME}"
+    run_root rm -f "${INSTALL_DIR}/${BINARY_NAME}"
 fi
 
 # --- Remove config ---
@@ -131,7 +160,7 @@ if [ "$HAS_CONFIG" = true ]; then
     if [ -w "$CONFIG_DIR" ] || [ -w "$(dirname "$CONFIG_DIR")" ]; then
         rm -rf "$CONFIG_DIR"
     else
-        sudo rm -rf "$CONFIG_DIR"
+        run_root rm -rf "$CONFIG_DIR"
     fi
 fi
 
@@ -139,21 +168,21 @@ fi
 
 if [ "$HAS_LOG" = true ]; then
     info "Removing log file /var/log/${BINARY_NAME}.log..."
-    sudo rm -f "/var/log/${BINARY_NAME}.log"
+    run_root rm -f "/var/log/${BINARY_NAME}.log"
 fi
 
 # --- Remove sudoers ---
 
 if [ "$HAS_SUDOERS" = true ]; then
     info "Removing sudoers file /etc/sudoers.d/${SERVICE_USER}..."
-    sudo rm -f "/etc/sudoers.d/${SERVICE_USER}"
+    run_root rm -f "/etc/sudoers.d/${SERVICE_USER}"
 fi
 
 # --- Remove dedicated user ---
 
 if [ "$HAS_SERVICE_USER" = true ]; then
     info "Removing system user '${SERVICE_USER}'..."
-    sudo userdel -r "$SERVICE_USER" 2>/dev/null || sudo userdel "$SERVICE_USER" 2>/dev/null || true
+    run_root userdel -r "$SERVICE_USER" 2>/dev/null || run_root userdel "$SERVICE_USER" 2>/dev/null || true
 fi
 
 echo ""

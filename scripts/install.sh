@@ -26,6 +26,32 @@ info()  { echo "  [*] $*"; }
 warn()  { echo "  [!] $*"; }
 error() { echo "  [!] $*" >&2; }
 
+# Run command as root: directly if already root, via sudo otherwise
+run_root() {
+    if [ "$(id -u)" -eq 0 ]; then
+        "$@"
+    else
+        sudo "$@"
+    fi
+}
+
+# Check that we can run privileged commands
+require_root() {
+    if [ "$(id -u)" -eq 0 ]; then
+        return 0
+    fi
+    if ! command -v sudo &>/dev/null; then
+        error "This operation requires root privileges, but sudo is not installed."
+        error "Please run this script as root."
+        exit 1
+    fi
+    if ! sudo -v 2>/dev/null; then
+        error "This operation requires root privileges, but sudo authentication failed."
+        error "Please run this script as root or ensure your user has sudo access."
+        exit 1
+    fi
+}
+
 ask() {
     local prompt="$1" default="$2"
     if [ ! -t 0 ]; then
@@ -106,7 +132,8 @@ info "Installing to ${INSTALL_DIR}/${BINARY_NAME}..."
 if [ -w "$INSTALL_DIR" ]; then
     install -m 0755 "${TMPDIR}/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
 else
-    sudo install -m 0755 "${TMPDIR}/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
+    require_root
+    run_root install -m 0755 "${TMPDIR}/${BINARY_NAME}" "${INSTALL_DIR}/${BINARY_NAME}"
 fi
 
 # --- Create config directory ---
@@ -116,7 +143,7 @@ if [ ! -d "$CONFIG_DIR" ]; then
     if [ -w "$(dirname "$CONFIG_DIR")" ]; then
         mkdir -p "$CONFIG_DIR"
     else
-        sudo mkdir -p "$CONFIG_DIR"
+        run_root mkdir -p "$CONFIG_DIR"
     fi
 fi
 
@@ -135,35 +162,38 @@ if [ "$OS" = "linux" ]; then
         info "=== Server Setup ==="
         echo ""
 
+        # Verify root/sudo access before starting
+        require_root
+
         # 1. Create dedicated system user
         if id "$SERVICE_USER" &>/dev/null; then
             info "User '${SERVICE_USER}' already exists, skipping creation."
         else
             info "Creating system user '${SERVICE_USER}'..."
-            sudo useradd -r -s /usr/sbin/nologin -m -d /var/lib/${SERVICE_USER} "$SERVICE_USER"
+            run_root useradd -r -s /usr/sbin/nologin -m -d /var/lib/${SERVICE_USER} "$SERVICE_USER"
             info "User '${SERVICE_USER}' created."
         fi
 
         # 2. Set config directory ownership and permissions
         info "Setting config directory permissions..."
-        sudo chown "${SERVICE_USER}:${SERVICE_USER}" "$CONFIG_DIR"
-        sudo chmod 755 "$CONFIG_DIR"
+        run_root chown "${SERVICE_USER}:${SERVICE_USER}" "$CONFIG_DIR"
+        run_root chmod 755 "$CONFIG_DIR"
 
         if [ -f "${CONFIG_DIR}/config.yaml" ]; then
-            sudo chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.yaml"
-            sudo chmod 600 "${CONFIG_DIR}/config.yaml"
+            run_root chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.yaml"
+            run_root chmod 600 "${CONFIG_DIR}/config.yaml"
         else
-            sudo touch "${CONFIG_DIR}/config.yaml"
-            sudo chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.yaml"
-            sudo chmod 600 "${CONFIG_DIR}/config.yaml"
+            run_root touch "${CONFIG_DIR}/config.yaml"
+            run_root chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.yaml"
+            run_root chmod 600 "${CONFIG_DIR}/config.yaml"
         fi
         info "Config: ${CONFIG_DIR}/config.yaml (mode 0600, owner ${SERVICE_USER})"
 
         # 3. Log file
         if [ "$SERVER_MODE" = "yes" ] || ask "Set up log file at /var/log/${BINARY_NAME}.log?" "y"; then
-            sudo touch "/var/log/${BINARY_NAME}.log"
-            sudo chown "${SERVICE_USER}:${SERVICE_USER}" "/var/log/${BINARY_NAME}.log"
-            sudo chmod 640 "/var/log/${BINARY_NAME}.log"
+            run_root touch "/var/log/${BINARY_NAME}.log"
+            run_root chown "${SERVICE_USER}:${SERVICE_USER}" "/var/log/${BINARY_NAME}.log"
+            run_root chmod 640 "/var/log/${BINARY_NAME}.log"
             info "Log file: /var/log/${BINARY_NAME}.log (mode 0640)"
         fi
 
@@ -195,8 +225,8 @@ if [ "$OS" = "linux" ]; then
             fi
 
             if [ "$SUDOERS_ADDED" = true ]; then
-                echo -e "$SUDOERS_CONTENT" | sudo tee "$SUDOERS_FILE" > /dev/null
-                sudo chmod 440 "$SUDOERS_FILE"
+                echo -e "$SUDOERS_CONTENT" | run_root tee "$SUDOERS_FILE" > /dev/null
+                run_root chmod 440 "$SUDOERS_FILE"
                 info "Sudoers file created: ${SUDOERS_FILE}"
             else
                 warn "No supported package managers found, skipping sudoers setup."
@@ -206,16 +236,16 @@ if [ "$OS" = "linux" ]; then
         # 5. Docker group
         if command -v docker &>/dev/null; then
             if [ "$SERVER_MODE" = "yes" ] || ask "Add '${SERVICE_USER}' to docker group?" "n"; then
-                sudo usermod -aG docker "$SERVICE_USER"
+                run_root usermod -aG docker "$SERVICE_USER"
                 info "User '${SERVICE_USER}' added to docker group."
             fi
         fi
 
         # 6. Cron job
         if [ "$SERVER_MODE" = "yes" ] || ask "Install daily cron job (7:00 AM)?" "y"; then
-            (sudo crontab -u "$SERVICE_USER" -l 2>/dev/null | grep -v "${BINARY_NAME}"; \
+            (run_root crontab -u "$SERVICE_USER" -l 2>/dev/null | grep -v "${BINARY_NAME}"; \
              echo "0 7 * * * ${INSTALL_DIR}/${BINARY_NAME} run --quiet") | \
-            sudo crontab -u "$SERVICE_USER" -
+            run_root crontab -u "$SERVICE_USER" -
             info "Cron job installed for user '${SERVICE_USER}' (daily at 07:00)."
         fi
 
