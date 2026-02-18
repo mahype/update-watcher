@@ -57,7 +57,17 @@ A modular CLI tool that checks for available software updates and sends notifica
 curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash
 ```
 
-This detects your OS and architecture, downloads the latest release, and installs it to `/usr/local/bin`.
+This detects your OS and architecture, downloads the latest release, and installs it to `/usr/local/bin`. On Linux, the script offers an optional **server setup** that creates a dedicated system user with proper permissions (see [Linux Server: Recommended Setup](#linux-server-recommended-setup)).
+
+For non-interactive use (e.g. in provisioning scripts):
+
+```bash
+# With server setup (dedicated user, sudoers, cron)
+curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash -s -- --server
+
+# Without server setup (binary only)
+curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash -s -- --no-server
+```
 
 ### Manual Install
 
@@ -198,7 +208,23 @@ The application requires **no inbound network ports**, no database, and no persi
 
 ## 🗑️ Uninstallation
 
-### Quick Removal
+### Uninstall Script
+
+The uninstall script automatically detects all installed components (binary, config, cron, log, sudoers, dedicated user) and removes them:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/uninstall.sh | bash
+```
+
+For non-interactive use:
+
+```bash
+curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/uninstall.sh | bash -s -- --yes
+```
+
+### Manual Removal
+
+Quick removal (binary and config only):
 
 ```bash
 update-watcher uninstall-cron
@@ -206,9 +232,7 @@ sudo rm /usr/local/bin/update-watcher
 sudo rm -rf /etc/update-watcher
 ```
 
-### Full Removal (including dedicated user)
-
-If you followed the [Linux Server: Recommended Setup](#linux-server-recommended-setup), run all steps to remove everything:
+Full removal including the dedicated server user:
 
 ```bash
 # 1. Remove cron job
