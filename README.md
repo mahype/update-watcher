@@ -51,11 +51,184 @@ A modular CLI tool that checks for available software updates and sends notifica
 
 ## 📥 Installation
 
+### Quick Install
+
 ```bash
 curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash
 ```
 
 This detects your OS and architecture, downloads the latest release, and installs it to `/usr/local/bin`.
+
+### Manual Install
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/mahype/update-watcher/releases):
+
+```bash
+# Download (replace OS and ARCH as needed: linux/darwin, amd64/arm64/armv7)
+curl -sSL -o update-watcher.tar.gz \
+  https://github.com/mahype/update-watcher/releases/latest/download/update-watcher_linux_amd64.tar.gz
+
+# Extract and install
+tar xzf update-watcher.tar.gz
+sudo install -m 0755 update-watcher /usr/local/bin/update-watcher
+rm update-watcher.tar.gz
+
+# Verify
+update-watcher version
+```
+
+### Build from Source
+
+Requires Go 1.21+.
+
+```bash
+git clone https://github.com/mahype/update-watcher.git
+cd update-watcher
+make build
+sudo make install
+```
+
+### Linux Server: Recommended Setup
+
+On production servers, run update-watcher under a **dedicated system user** with minimal privileges (principle of least privilege).
+
+#### 1. Create a dedicated user
+
+```bash
+sudo useradd -r -s /usr/sbin/nologin -m -d /var/lib/update-watcher update-watcher
+```
+
+#### 2. Set up config directory and permissions
+
+```bash
+sudo mkdir -p /etc/update-watcher
+sudo chown update-watcher:update-watcher /etc/update-watcher
+sudo chmod 755 /etc/update-watcher
+
+# Config file must be owner-readable only (contains tokens/secrets)
+sudo touch /etc/update-watcher/config.yaml
+sudo chown update-watcher:update-watcher /etc/update-watcher/config.yaml
+sudo chmod 600 /etc/update-watcher/config.yaml
+```
+
+#### 3. Set up log file (optional)
+
+```bash
+sudo touch /var/log/update-watcher.log
+sudo chown update-watcher:update-watcher /var/log/update-watcher.log
+sudo chmod 640 /var/log/update-watcher.log
+```
+
+Then add `log_file: "/var/log/update-watcher.log"` to the `settings` section in your config.
+
+#### 4. Grant sudo rights for package manager refresh (optional)
+
+If you want update-watcher to refresh package lists before checking (e.g. `apt-get update`), create `/etc/sudoers.d/update-watcher`:
+
+```bash
+sudo visudo -f /etc/sudoers.d/update-watcher
+```
+
+Add the lines for your package manager(s):
+
+```
+# APT (Debian/Ubuntu)
+update-watcher ALL=(root) NOPASSWD: /usr/bin/apt-get update
+
+# DNF (Fedora/RHEL)
+update-watcher ALL=(root) NOPASSWD: /usr/bin/dnf check-update
+
+# Pacman (Arch)
+update-watcher ALL=(root) NOPASSWD: /usr/bin/pacman -Sy
+
+# Zypper (openSUSE)
+update-watcher ALL=(root) NOPASSWD: /usr/bin/zypper refresh
+
+# APK (Alpine)
+update-watcher ALL=(root) NOPASSWD: /sbin/apk update
+```
+
+**Alternative:** If your server already refreshes package lists automatically (e.g. via `unattended-upgrades`), you can skip this and set `use_sudo: false` in the checker options.
+
+#### 5. Docker access (optional)
+
+If you want to monitor Docker containers, add the user to the `docker` group:
+
+```bash
+sudo usermod -aG docker update-watcher
+```
+
+#### 6. WordPress / Web project access (optional)
+
+If you monitor WordPress sites or web projects, grant read access via group membership:
+
+```bash
+sudo usermod -aG www-data update-watcher
+```
+
+#### 7. Schedule via cron
+
+```bash
+sudo crontab -u update-watcher -e
+```
+
+Add a line like:
+
+```
+0 7 * * * /usr/local/bin/update-watcher run --quiet
+```
+
+Or use the built-in command (run as the `update-watcher` user):
+
+```bash
+sudo -u update-watcher update-watcher install-cron
+```
+
+#### Summary
+
+| Resource | Path | Permissions |
+|---|---|---|
+| Binary | `/usr/local/bin/update-watcher` | `0755`, root:root |
+| Config directory | `/etc/update-watcher/` | `0755`, update-watcher:update-watcher |
+| Config file | `/etc/update-watcher/config.yaml` | `0600`, update-watcher:update-watcher |
+| Log file | `/var/log/update-watcher.log` | `0640`, update-watcher:update-watcher |
+| Sudoers | `/etc/sudoers.d/update-watcher` | `0440`, root:root |
+
+The application requires **no inbound network ports**, no database, and no persistent state beyond the config file. All network access is outbound-only (HTTPS to notification services).
+
+## 🗑️ Uninstallation
+
+### Quick Removal
+
+```bash
+update-watcher uninstall-cron
+sudo rm /usr/local/bin/update-watcher
+sudo rm -rf /etc/update-watcher
+```
+
+### Full Removal (including dedicated user)
+
+If you followed the [Linux Server: Recommended Setup](#linux-server-recommended-setup), run all steps to remove everything:
+
+```bash
+# 1. Remove cron job
+sudo crontab -u update-watcher -r
+
+# 2. Remove binary
+sudo rm /usr/local/bin/update-watcher
+
+# 3. Remove config
+sudo rm -rf /etc/update-watcher
+
+# 4. Remove log file
+sudo rm -f /var/log/update-watcher.log
+
+# 5. Remove sudoers file
+sudo rm -f /etc/sudoers.d/update-watcher
+
+# 6. Remove dedicated user
+sudo userdel -r update-watcher
+```
 
 ## 🚀 Quick Start
 
@@ -512,17 +685,6 @@ What would you like to do?
 | 2 | Partial failure (some checkers failed) |
 | 3 | Complete failure |
 | 4 | Configuration missing or invalid |
-
-## 🛠️ Build from Source
-
-```bash
-git clone https://github.com/mahype/update-watcher.git
-cd update-watcher
-make build
-make install
-```
-
-Requires Go 1.21+.
 
 ## 📄 License
 
