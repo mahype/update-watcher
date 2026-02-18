@@ -48,6 +48,10 @@ func CheckerEmoji(name string, useEmoji bool) string {
 		return "\U0001f37a" // 🍺
 	case "openclaw":
 		return "\U0001f43e" // 🐾
+	case "distro":
+		return "\U0001f4bf" // 💿
+	case "self-update":
+		return "\U0001f199" // 🆙
 	default:
 		return "\U0001f504" // 🔄
 	}
@@ -76,6 +80,10 @@ func CheckerDisplayName(name string) string {
 		return "Web Project Updates"
 	case "openclaw":
 		return "OpenClaw Updates"
+	case "distro":
+		return "Distro Release"
+	case "self-update":
+		return "Update Watcher"
 	default:
 		return name + " Updates"
 	}
@@ -109,6 +117,10 @@ func UpdateCommand(checkerName string) string {
 		return "wp plugin update --all && wp theme update --all && wp core update"
 	case "openclaw":
 		return "openclaw update"
+	case "distro":
+		return ""
+	case "self-update":
+		return "update-watcher self-update"
 	default:
 		return ""
 	}

@@ -20,6 +20,11 @@ watchers:
     options:
       include_casks: true
 
+  - type: distro
+    enabled: false
+    options:
+      lts_only: true  # Ubuntu: only report LTS upgrades
+
   - type: snap
     enabled: false
 

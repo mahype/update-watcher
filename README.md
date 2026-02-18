@@ -23,6 +23,8 @@ A modular CLI tool that checks for available software updates and sends notifica
 - 🐳 **Docker** — Detects newer images for running containers (read-only, no image pulls)
 - 📝 **WordPress** — Core, plugin, and theme updates across 11 environments
 - 📦 **Web Projects** — Outdated packages and security audits for npm, yarn, pnpm, and Composer
+- 💿 **Distro Release** — Checks if a newer Linux distribution release is available (Ubuntu, Debian, Fedora)
+- 🐾 **OpenClaw** — OpenClaw application updates
 
 ### 🔔 Notifiers
 
@@ -45,6 +47,7 @@ A modular CLI tool that checks for available software updates and sends notifica
 
 ### ⚙️ Other
 
+- 🔄 **Self-update** — Update update-watcher itself from GitHub releases
 - 💡 **Update hints** — Copy-paste-ready commands shown after each checker's updates
 - 🕐 **Cron scheduling** — Built-in cron job management
 - 🧙 **Interactive setup** — Menu-driven wizard with auto-detection
@@ -289,9 +292,12 @@ update-watcher install-cron
 | `watch snap` | Add Snap watcher |
 | `watch flatpak` | Add Flatpak watcher |
 | `watch docker` | Add Docker watcher |
+| `watch distro [--lts-only]` | Add distribution release upgrade watcher |
+| `watch openclaw [--channel CHANNEL]` | Add OpenClaw watcher |
 | `watch webproject --path PATH [--name NAME] [--env TYPE]` | Add web project watcher |
 | `watch wordpress --path PATH [--name NAME] [--env TYPE]` | Add WordPress watcher |
 | `unwatch <type> [--name NAME]` | Remove a watcher |
+| `self-update [--status]` | Update to latest version |
 | `install-cron [--time HH:MM]` | Schedule daily cron job |
 | `uninstall-cron` | Remove cron job |
 | `version` | Show version info |
@@ -403,6 +409,11 @@ watchers:
 
   - type: flatpak
     enabled: true
+
+  - type: distro
+    enabled: true
+    options:
+      lts_only: true
 
   - type: docker
     enabled: true
@@ -572,6 +583,8 @@ settings:
 | `wordpress` | `check_themes` | `true` | Check theme updates |
 | `webproject` | `projects` | `[]` | List of project objects (name, path, environment, managers, run_as) |
 | `webproject` | `check_audit` | `true` | Run security audits (npm audit, composer audit, etc.) |
+| `distro` | `lts_only` | `true` | Only report LTS upgrades (Ubuntu only) |
+| `openclaw` | `channel` | `""` | Update channel (stable, beta, dev) |
 
 ### Notifier Options
 

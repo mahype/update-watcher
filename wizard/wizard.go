@@ -432,6 +432,9 @@ func manageWatchers(cfg *config.Config) error {
 				} else {
 					fmt.Printf("    [✓] OpenClaw (%s)\n", status)
 				}
+			case "distro":
+				ltsOnly := w.GetBool("lts_only", true)
+				fmt.Printf("    [✓] Distro Release (%s, lts_only: %v)\n", status, ltsOnly)
 			}
 		}
 		fmt.Println()
@@ -470,6 +473,11 @@ func manageWatchers(cfg *config.Config) error {
 		}
 		if isToolAvailable("openclaw") {
 			options = append(options, huh.NewOption("Add OpenClaw watcher", "add-openclaw"))
+		}
+		if runtime.GOOS == "linux" {
+			if _, err := os.Stat("/etc/os-release"); err == nil {
+				options = append(options, huh.NewOption("Add Distro Release watcher", "add-distro"))
+			}
 		}
 		// Web projects are always available.
 		options = append(options, huh.NewOption("Add Web Project", "add-webproject"))
@@ -516,6 +524,8 @@ func manageWatchers(cfg *config.Config) error {
 			addDockerWatcher(cfg)
 		case "add-openclaw":
 			addOpenClawWatcher(cfg)
+		case "add-distro":
+			addDistroWatcher(cfg)
 		case "add-wordpress":
 			addWordPressSite(cfg)
 		case "add-webproject":
@@ -808,6 +818,36 @@ func addOpenClawWatcher(cfg *config.Config) {
 		Options: opts,
 	})
 	fmt.Println("  OpenClaw watcher configured.")
+}
+
+func addDistroWatcher(cfg *config.Config) {
+	ltsOnly := true
+
+	// Pre-fill from existing
+	for _, w := range cfg.Watchers {
+		if w.Type == "distro" {
+			ltsOnly = w.GetBool("lts_only", true)
+			break
+		}
+	}
+
+	huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title("Only report LTS upgrades? (Ubuntu only)").
+				Description("When enabled, only LTS-to-LTS upgrades are reported on Ubuntu systems. Ignored on other distributions.").
+				Value(&ltsOnly),
+		),
+	).Run()
+
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "distro",
+		Enabled: true,
+		Options: map[string]interface{}{
+			"lts_only": ltsOnly,
+		},
+	})
+	fmt.Println("  Distro release watcher configured.")
 }
 
 func addDockerWatcher(cfg *config.Config) {

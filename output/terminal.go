@@ -62,6 +62,8 @@ func printCheckerResult(r *checker.CheckResult) {
 
 	if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
 		fmt.Printf("\n  \U0001f4a1 Update: %s\n", cmd)
+	} else if len(r.Updates) > 0 && r.Updates[0].Source != "" {
+		fmt.Printf("\n  \U0001f4a1 Update: %s\n", r.Updates[0].Source)
 	}
 
 	fmt.Println()
@@ -175,6 +177,8 @@ func checkerIcon(name string) string {
 		return "[WP]"
 	case "webproject":
 		return "[WEB]"
+	case "distro":
+		return "[DST]"
 	default:
 		return "[???]"
 	}

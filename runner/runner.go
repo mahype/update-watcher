@@ -4,12 +4,17 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/mahype/update-watcher/checker"
+	"github.com/mahype/update-watcher/internal/selfupdate"
+	"github.com/mahype/update-watcher/internal/version"
 	// Import checker implementations so they register themselves
 	_ "github.com/mahype/update-watcher/checker/apk"
 	_ "github.com/mahype/update-watcher/checker/apt"
+	_ "github.com/mahype/update-watcher/checker/distro"
 	_ "github.com/mahype/update-watcher/checker/dnf"
 	_ "github.com/mahype/update-watcher/checker/docker"
 	_ "github.com/mahype/update-watcher/checker/flatpak"
@@ -142,6 +147,13 @@ func (r *Runner) Run() (*RunResult, error) {
 
 	wg.Wait()
 
+	// Self-update check: always runs unless --only filters to a specific checker.
+	if r.only == "" {
+		if cr := r.checkSelfUpdate(); cr != nil {
+			result.Results = append(result.Results, cr)
+		}
+	}
+
 	// Aggregate
 	for _, cr := range result.Results {
 		result.TotalUpdates += len(cr.Updates)
@@ -192,4 +204,38 @@ func (r *Runner) notify(ctx context.Context, result *RunResult) error {
 		return fmt.Errorf("notification errors: %v", notifyErrors)
 	}
 	return nil
+}
+
+// checkSelfUpdate queries GitHub for a newer version of update-watcher.
+// Returns a CheckResult only if a newer version is available, nil otherwise.
+func (r *Runner) checkSelfUpdate() *checker.CheckResult {
+	slog.Info("checking for update-watcher self-update")
+
+	release, err := selfupdate.LatestRelease()
+	if err != nil {
+		slog.Warn("self-update check failed", "error", err)
+		return nil
+	}
+
+	if !selfupdate.NeedsUpdate(version.Version, release) {
+		slog.Info("update-watcher is up to date", "version", version.Version)
+		return nil
+	}
+
+	slog.Info("update-watcher update available", "current", version.Version, "latest", release.TagName)
+
+	return &checker.CheckResult{
+		CheckerName: "self-update",
+		Updates: []checker.Update{
+			{
+				Name:           "update-watcher",
+				CurrentVersion: strings.TrimPrefix(version.Version, "v"),
+				NewVersion:     release.Version,
+				Type:           checker.UpdateTypeCore,
+				Priority:       checker.PriorityNormal,
+			},
+		},
+		Summary:   fmt.Sprintf("update available: %s → %s", version.Version, release.TagName),
+		CheckedAt: time.Now(),
+	}
 }

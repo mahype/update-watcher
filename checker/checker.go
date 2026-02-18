@@ -58,6 +58,7 @@ const (
 	UpdateTypeTheme    = "theme"
 	UpdateTypeCore     = "core"
 	UpdateTypeImage    = "image"
+	UpdateTypeDistro   = "distro"
 )
 
 // Priority constants.

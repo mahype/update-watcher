@@ -61,7 +61,7 @@ func Validate(cfg *Config) error {
 		ve.add("no watchers configured")
 	}
 
-	validTypes := map[string]bool{"apt": true, "dnf": true, "pacman": true, "zypper": true, "apk": true, "macos": true, "homebrew": true, "snap": true, "flatpak": true, "docker": true, "wordpress": true, "webproject": true}
+	validTypes := map[string]bool{"apt": true, "dnf": true, "pacman": true, "zypper": true, "apk": true, "macos": true, "homebrew": true, "snap": true, "flatpak": true, "docker": true, "wordpress": true, "webproject": true, "openclaw": true, "distro": true}
 	for i, w := range cfg.Watchers {
 		if !validTypes[w.Type] {
 			ve.add(fmt.Sprintf("watcher[%d]: unknown type %q", i, w.Type))
