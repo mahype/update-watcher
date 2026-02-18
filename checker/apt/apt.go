@@ -42,7 +42,7 @@ func (a *AptChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	var refreshResult *executil.Result
 	var err error
 
-	refreshResult, err = executil.RunMaybeSudo(a.useSudo, "apt-get", "update", "-qq")
+	refreshResult, err = executil.RunMaybeSudo(a.useSudo, "apt-get", "update")
 	if err != nil {
 		slog.Warn("apt-get update failed, continuing with possibly stale data", "error", err, "stderr", refreshResult.Stderr)
 		result.Error = fmt.Sprintf("apt-get update failed: %s", err)

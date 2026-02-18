@@ -87,7 +87,7 @@ func RunMaybeSudo(sudo bool, name string, args ...string) (*Result, error) {
 
 // RunAsSudo executes a command with sudo.
 func RunAsSudo(name string, args ...string) (*Result, error) {
-	sudoArgs := append([]string{name}, args...)
+	sudoArgs := append([]string{"-n", name}, args...)
 	return Run("sudo", sudoArgs...)
 }
 
@@ -103,7 +103,7 @@ func RunAsUser(username string, name string, args ...string) (*Result, error) {
 		return Run(name, args...)
 	}
 
-	sudoArgs := append([]string{"-u", username, name}, args...)
+	sudoArgs := append([]string{"-n", "-u", username, name}, args...)
 	return Run("sudo", sudoArgs...)
 }
 
@@ -135,7 +135,7 @@ func RunAsUserWithEnv(env []string, username string, name string, args ...string
 	}
 
 	// Use "sudo -u <user> env VAR=val ... <command> <args>"
-	sudoArgs := []string{"-u", username, "env"}
+	sudoArgs := []string{"-n", "-u", username, "env"}
 	sudoArgs = append(sudoArgs, env...)
 	sudoArgs = append(sudoArgs, name)
 	sudoArgs = append(sudoArgs, args...)

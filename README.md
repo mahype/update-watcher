@@ -147,12 +147,15 @@ update-watcher ALL=(root) NOPASSWD: /usr/bin/apt-get update
 
 # DNF (Fedora/RHEL)
 update-watcher ALL=(root) NOPASSWD: /usr/bin/dnf check-update
+update-watcher ALL=(root) NOPASSWD: /usr/bin/dnf updateinfo list --security
 
 # Pacman (Arch)
 update-watcher ALL=(root) NOPASSWD: /usr/bin/pacman -Sy
 
 # Zypper (openSUSE)
-update-watcher ALL=(root) NOPASSWD: /usr/bin/zypper refresh
+update-watcher ALL=(root) NOPASSWD: /usr/bin/zypper --non-interactive refresh
+update-watcher ALL=(root) NOPASSWD: /usr/bin/zypper --non-interactive list-patches --category security
+update-watcher ALL=(root) NOPASSWD: /usr/bin/zypper --non-interactive list-updates
 
 # APK (Alpine)
 update-watcher ALL=(root) NOPASSWD: /sbin/apk update

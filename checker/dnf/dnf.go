@@ -43,7 +43,7 @@ func (d *DnfChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 		slog.Info("fetching security update info")
 		var secResult *executil.Result
 		var err error
-		secResult, err = executil.RunMaybeSudo(d.useSudo, "dnf", "updateinfo", "list", "--security", "-q")
+		secResult, err = executil.RunMaybeSudo(d.useSudo, "dnf", "updateinfo", "list", "--security")
 		if err != nil {
 			slog.Warn("dnf updateinfo failed, security classification unavailable", "error", err)
 		} else {
@@ -56,7 +56,7 @@ func (d *DnfChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	var checkResult *executil.Result
 	var err error
 
-	checkResult, err = executil.RunMaybeSudo(d.useSudo, "dnf", "check-update", "-q")
+	checkResult, err = executil.RunMaybeSudo(d.useSudo, "dnf", "check-update")
 
 	// Exit code 100 means updates are available (not an error)
 	if err != nil && checkResult != nil && checkResult.ExitCode != 100 {
@@ -66,7 +66,7 @@ func (d *DnfChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	if d.securityOnly {
 		// For security-only mode, use dnf updateinfo directly
 		var secResult *executil.Result
-		secResult, err = executil.RunMaybeSudo(d.useSudo, "dnf", "updateinfo", "list", "--security", "-q")
+		secResult, err = executil.RunMaybeSudo(d.useSudo, "dnf", "updateinfo", "list", "--security")
 		if err != nil {
 			return result, fmt.Errorf("dnf updateinfo failed: %w", err)
 		}

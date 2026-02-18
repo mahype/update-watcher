@@ -209,6 +209,7 @@ if [ "$OS" = "linux" ]; then
             fi
             if command -v dnf &>/dev/null; then
                 SUDOERS_CONTENT+="${SERVICE_USER} ALL=(root) NOPASSWD: /usr/bin/dnf check-update\n"
+                SUDOERS_CONTENT+="${SERVICE_USER} ALL=(root) NOPASSWD: /usr/bin/dnf updateinfo list --security\n"
                 SUDOERS_ADDED=true
             fi
             if command -v pacman &>/dev/null; then
@@ -216,7 +217,9 @@ if [ "$OS" = "linux" ]; then
                 SUDOERS_ADDED=true
             fi
             if command -v zypper &>/dev/null; then
-                SUDOERS_CONTENT+="${SERVICE_USER} ALL=(root) NOPASSWD: /usr/bin/zypper refresh\n"
+                SUDOERS_CONTENT+="${SERVICE_USER} ALL=(root) NOPASSWD: /usr/bin/zypper --non-interactive refresh\n"
+                SUDOERS_CONTENT+="${SERVICE_USER} ALL=(root) NOPASSWD: /usr/bin/zypper --non-interactive list-patches --category security\n"
+                SUDOERS_CONTENT+="${SERVICE_USER} ALL=(root) NOPASSWD: /usr/bin/zypper --non-interactive list-updates\n"
                 SUDOERS_ADDED=true
             fi
             if command -v apk &>/dev/null; then
