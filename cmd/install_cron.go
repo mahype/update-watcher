@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/mahype/update-watcher/cron"
+	"github.com/mahype/update-watcher/internal/rootcheck"
 	"github.com/spf13/cobra"
 )
 
@@ -11,6 +12,9 @@ var installCronCmd = &cobra.Command{
 	Use:   "install-cron",
 	Short: "Install a cron job for daily update checks",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		force, _ := cmd.Flags().GetBool("as-service-user")
+		rootcheck.WarnOrReExec(force)
+
 		cronExpr, _ := cmd.Flags().GetString("cron-expr")
 		timeStr, _ := cmd.Flags().GetString("time")
 

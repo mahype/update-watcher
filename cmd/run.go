@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/mahype/update-watcher/config"
+	"github.com/mahype/update-watcher/internal/rootcheck"
 	"github.com/mahype/update-watcher/output"
 	"github.com/mahype/update-watcher/runner"
 	"github.com/spf13/cobra"
@@ -16,6 +17,9 @@ var runCmd = &cobra.Command{
 	Short: "Run all configured update checks",
 	Long:  "Execute all enabled watchers and send notifications.",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		force, _ := cmd.Flags().GetBool("as-service-user")
+		rootcheck.WarnOrReExec(force)
+
 		cfg, err := config.Load()
 		if err != nil {
 			return fmt.Errorf("failed to load config: %w", err)

@@ -30,6 +30,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "config file (default: "+config.DefaultConfigDir()+"/config.yaml)")
 	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "suppress terminal output")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable debug logging")
+	rootCmd.PersistentFlags().Bool("as-service-user", false, "re-run as the dedicated update-watcher system user")
 
 	viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
 	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
