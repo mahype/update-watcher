@@ -32,6 +32,9 @@ A modular CLI tool that checks for available software updates and sends notifica
 - ✈️ **Telegram** — Bot API messages with Markdown formatting
 - 📧 **Email** — HTML emails via SMTP (with STARTTLS)
 - 📲 **ntfy** — Push notifications via [ntfy.sh](https://ntfy.sh) or self-hosted
+- 📢 **Pushover** — Push notifications for iOS, Android, Desktop
+- 🔔 **Gotify** — Push notifications via self-hosted Gotify server
+- 💬 **Google Chat** — Messages to Google Workspace spaces via webhooks
 - 🌐 **Webhook** — JSON payloads to any HTTP endpoint
 
 ### ⚙️ Other
@@ -274,6 +277,23 @@ notifiers:
       topic: "update-watcher"
       server_url: "https://ntfy.sh"
 
+  - type: pushover
+    enabled: false
+    options:
+      app_token: "azGDORePK8gMaC0QOYAMyEEuzJnyUi"
+      user_key: "uQiRzpo4DXghDmr9QzzfQu27cmVRsG"
+
+  - type: gotify
+    enabled: false
+    options:
+      server_url: "https://gotify.example.com"
+      token: "AKsjdf83jsd"
+
+  - type: googlechat
+    enabled: false
+    options:
+      webhook_url: "https://chat.googleapis.com/v1/spaces/AAAA/messages?key=xxx&token=yyy"
+
   - type: webhook
     enabled: false
     options:
@@ -336,6 +356,16 @@ settings:
 | `ntfy` | `server_url` | No | ntfy server (default: https://ntfy.sh) |
 | `ntfy` | `token` | No | Authentication token |
 | `ntfy` | `priority` | No | Message priority |
+| `pushover` | `app_token` | Yes | Pushover application token |
+| `pushover` | `user_key` | Yes | Pushover user or group key |
+| `pushover` | `device` | No | Send to specific device only |
+| `pushover` | `priority` | No | Priority (-2 to 2, default: 0) |
+| `pushover` | `sound` | No | Notification sound |
+| `gotify` | `server_url` | Yes | Gotify server URL |
+| `gotify` | `token` | Yes | Gotify application token |
+| `gotify` | `priority` | No | Priority (0-10, default: 5) |
+| `googlechat` | `webhook_url` | Yes | Google Chat webhook URL |
+| `googlechat` | `thread_key` | No | Group messages in a thread |
 | `webhook` | `url` | Yes | Target URL |
 | `webhook` | `method` | No | HTTP method (default: POST) |
 | `webhook` | `content_type` | No | Content-Type header |

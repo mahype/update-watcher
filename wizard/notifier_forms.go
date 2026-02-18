@@ -10,24 +10,30 @@ import (
 
 // addFuncs maps notifier types to their add-configuration functions.
 var addFuncs = map[string]func(cfg *config.Config) error{
-	"slack":    addSlack,
-	"ntfy":     addNtfy,
-	"webhook":  addWebhook,
-	"discord":  addDiscord,
-	"telegram": addTelegram,
-	"teams":    addTeams,
-	"email":    addEmail,
+	"slack":      addSlack,
+	"ntfy":       addNtfy,
+	"webhook":    addWebhook,
+	"discord":    addDiscord,
+	"telegram":   addTelegram,
+	"teams":      addTeams,
+	"email":      addEmail,
+	"pushover":   addPushover,
+	"gotify":     addGotify,
+	"googlechat": addGoogleChat,
 }
 
 // editFuncs maps notifier types to their edit-configuration functions.
 var editFuncs = map[string]func(cfg *config.Config, existing *config.NotifierConfig) error{
-	"slack":    editSlack,
-	"ntfy":     editNtfy,
-	"webhook":  editWebhook,
-	"discord":  editDiscord,
-	"telegram": editTelegram,
-	"teams":    editTeams,
-	"email":    editEmail,
+	"slack":      editSlack,
+	"ntfy":       editNtfy,
+	"webhook":    editWebhook,
+	"discord":    editDiscord,
+	"telegram":   editTelegram,
+	"teams":      editTeams,
+	"email":      editEmail,
+	"pushover":   editPushover,
+	"gotify":     editGotify,
+	"googlechat": editGoogleChat,
 }
 
 // --- Slack ---
@@ -633,4 +639,231 @@ func getIntOption(options map[string]interface{}, key string, defaultVal int) in
 		}
 	}
 	return defaultVal
+}
+
+// --- Pushover ---
+
+func addPushover(cfg *config.Config) error {
+	var appToken, userKey, device, sound string
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Application Token").
+				Description("From https://pushover.net/apps (required)").
+				Value(&appToken),
+			huh.NewInput().
+				Title("User/Group Key").
+				Description("Your Pushover user or group key (required)").
+				Value(&userKey),
+			huh.NewInput().
+				Title("Device").
+				Description("Send to specific device only (leave empty for all)").
+				Value(&device),
+			huh.NewInput().
+				Title("Sound").
+				Description("Notification sound (leave empty for default)").
+				Value(&sound),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	options := map[string]interface{}{
+		"app_token": appToken,
+		"user_key":  userKey,
+	}
+	if device != "" {
+		options["device"] = device
+	}
+	if sound != "" {
+		options["sound"] = sound
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
+		Type:    "pushover",
+		Enabled: true,
+		Options: options,
+	})
+
+	fmt.Println("  Pushover notifier added.")
+	return nil
+}
+
+func editPushover(cfg *config.Config, existing *config.NotifierConfig) error {
+	opts := config.WatcherConfig{Options: existing.Options}
+	appToken := opts.GetString("app_token", "")
+	userKey := opts.GetString("user_key", "")
+	device := opts.GetString("device", "")
+	sound := opts.GetString("sound", "")
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Application Token").
+				Value(&appToken),
+			huh.NewInput().
+				Title("User/Group Key").
+				Value(&userKey),
+			huh.NewInput().
+				Title("Device").
+				Description("Leave empty for all devices").
+				Value(&device),
+			huh.NewInput().
+				Title("Sound").
+				Description("Leave empty for default").
+				Value(&sound),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	existing.Options["app_token"] = appToken
+	existing.Options["user_key"] = userKey
+	if device != "" {
+		existing.Options["device"] = device
+	} else {
+		delete(existing.Options, "device")
+	}
+	if sound != "" {
+		existing.Options["sound"] = sound
+	} else {
+		delete(existing.Options, "sound")
+	}
+
+	fmt.Println("  Pushover settings updated.")
+	return nil
+}
+
+// --- Gotify ---
+
+func addGotify(cfg *config.Config) error {
+	var serverURL, token string
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Gotify Server URL").
+				Description("e.g. https://gotify.example.com (required)").
+				Value(&serverURL),
+			huh.NewInput().
+				Title("Application Token").
+				Description("From Gotify web UI > Apps (required)").
+				Value(&token),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	options := map[string]interface{}{
+		"server_url": serverURL,
+		"token":      token,
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
+		Type:    "gotify",
+		Enabled: true,
+		Options: options,
+	})
+
+	fmt.Println("  Gotify notifier added.")
+	return nil
+}
+
+func editGotify(cfg *config.Config, existing *config.NotifierConfig) error {
+	opts := config.WatcherConfig{Options: existing.Options}
+	serverURL := opts.GetString("server_url", "")
+	token := opts.GetString("token", "")
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Gotify Server URL").
+				Value(&serverURL),
+			huh.NewInput().
+				Title("Application Token").
+				Value(&token),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	existing.Options["server_url"] = serverURL
+	existing.Options["token"] = token
+
+	fmt.Println("  Gotify settings updated.")
+	return nil
+}
+
+// --- Google Chat ---
+
+func addGoogleChat(cfg *config.Config) error {
+	var webhookURL, threadKey string
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Google Chat Webhook URL").
+				Description("Space settings > Apps & integrations > Webhooks (required)").
+				Value(&webhookURL),
+			huh.NewInput().
+				Title("Thread Key").
+				Description("Group messages in a thread (leave empty for new messages)").
+				Value(&threadKey),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	options := map[string]interface{}{
+		"webhook_url": webhookURL,
+	}
+	if threadKey != "" {
+		options["thread_key"] = threadKey
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
+		Type:    "googlechat",
+		Enabled: true,
+		Options: options,
+	})
+
+	fmt.Println("  Google Chat notifier added.")
+	return nil
+}
+
+func editGoogleChat(cfg *config.Config, existing *config.NotifierConfig) error {
+	opts := config.WatcherConfig{Options: existing.Options}
+	webhookURL := opts.GetString("webhook_url", "")
+	threadKey := opts.GetString("thread_key", "")
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Google Chat Webhook URL").
+				Value(&webhookURL),
+			huh.NewInput().
+				Title("Thread Key").
+				Description("Leave empty for new messages").
+				Value(&threadKey),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	existing.Options["webhook_url"] = webhookURL
+	if threadKey != "" {
+		existing.Options["thread_key"] = threadKey
+	} else {
+		delete(existing.Options, "thread_key")
+	}
+
+	fmt.Println("  Google Chat settings updated.")
+	return nil
 }

@@ -24,7 +24,10 @@ import (
 	// Import notifier implementations so they register themselves
 	_ "github.com/mahype/update-watcher/notifier/discord"
 	_ "github.com/mahype/update-watcher/notifier/email"
+	_ "github.com/mahype/update-watcher/notifier/googlechat"
+	_ "github.com/mahype/update-watcher/notifier/gotify"
 	_ "github.com/mahype/update-watcher/notifier/ntfy"
+	_ "github.com/mahype/update-watcher/notifier/pushover"
 	_ "github.com/mahype/update-watcher/notifier/slack"
 	_ "github.com/mahype/update-watcher/notifier/teams"
 	_ "github.com/mahype/update-watcher/notifier/telegram"
