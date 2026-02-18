@@ -20,6 +20,13 @@ var validateCmd = &cobra.Command{
 			return err
 		}
 
+		if warnings := config.WarnPlaintextSecrets(cfg); len(warnings) > 0 {
+			for _, w := range warnings {
+				fmt.Printf("\u26a0  %s\n", w)
+			}
+			fmt.Println()
+		}
+
 		fmt.Printf("Configuration is valid (%s)\n", config.ConfigPath())
 		return nil
 	},

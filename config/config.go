@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 
 	"github.com/mahype/update-watcher/internal/hostname"
@@ -109,6 +110,60 @@ func (w WatcherConfig) GetMapSlice(key string) []map[string]interface{} {
 	}
 }
 
+// envVarPattern matches ${VAR} and ${VAR:-default} patterns.
+var envVarPattern = regexp.MustCompile(`\$\{([^}:]+)(?::-([^}]*))?\}`)
+
+// resolveEnvVars replaces ${VAR} and ${VAR:-default} in a string with
+// environment variable values. Unset variables resolve to empty string
+// unless a default is provided.
+func resolveEnvVars(input string) string {
+	return envVarPattern.ReplaceAllStringFunc(input, func(match string) string {
+		groups := envVarPattern.FindStringSubmatch(match)
+		varName := groups[1]
+		defaultVal := groups[2]
+
+		if val, ok := os.LookupEnv(varName); ok {
+			return val
+		}
+		return defaultVal
+	})
+}
+
+// resolveOptionsEnvVars walks an options map and resolves ${ENV_VAR} references
+// in all string values, including those nested in slices and maps.
+func resolveOptionsEnvVars(options map[string]interface{}) {
+	for key, val := range options {
+		switch v := val.(type) {
+		case string:
+			options[key] = resolveEnvVars(v)
+		case []interface{}:
+			for i, item := range v {
+				if s, ok := item.(string); ok {
+					v[i] = resolveEnvVars(s)
+				} else if m, ok := item.(map[string]interface{}); ok {
+					resolveOptionsEnvVars(m)
+				}
+			}
+		case map[string]interface{}:
+			resolveOptionsEnvVars(v)
+		}
+	}
+}
+
+// resolveConfigEnvVars resolves ${ENV_VAR} references in all watcher and notifier options.
+func resolveConfigEnvVars(cfg *Config) {
+	for i := range cfg.Watchers {
+		if cfg.Watchers[i].Options != nil {
+			resolveOptionsEnvVars(cfg.Watchers[i].Options)
+		}
+	}
+	for i := range cfg.Notifiers {
+		if cfg.Notifiers[i].Options != nil {
+			resolveOptionsEnvVars(cfg.Notifiers[i].Options)
+		}
+	}
+}
+
 // Load reads the configuration from Viper.
 func Load() (*Config, error) {
 	var cfg Config
@@ -121,6 +176,7 @@ func Load() (*Config, error) {
 	}
 
 	applyDefaults(&cfg)
+	resolveConfigEnvVars(&cfg)
 
 	return &cfg, nil
 }
@@ -137,7 +193,7 @@ func Save(cfg *Config, path string) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 

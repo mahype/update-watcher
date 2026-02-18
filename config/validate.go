@@ -5,6 +5,38 @@ import (
 	"strings"
 )
 
+// secretKeys are option keys that typically contain sensitive credentials.
+var secretKeys = map[string]bool{
+	"webhook_url":  true,
+	"bot_token":    true,
+	"password":     true,
+	"access_token": true,
+	"auth_header":  true,
+	"routing_key":  true,
+	"user_key":     true,
+	"app_token":    true,
+	"token":        true,
+}
+
+// WarnPlaintextSecrets checks for credential fields that contain literal values
+// instead of ${ENV_VAR} references. Returns non-blocking warning messages.
+func WarnPlaintextSecrets(cfg *Config) []string {
+	var warnings []string
+	for i, n := range cfg.Notifiers {
+		if !n.Enabled {
+			continue
+		}
+		opts := WatcherConfig{Options: n.Options}
+		for key := range secretKeys {
+			val := opts.GetString(key, "")
+			if val != "" && !strings.HasPrefix(val, "${") {
+				warnings = append(warnings, fmt.Sprintf("notifiers[%d] (%s): %s contains a plaintext secret — consider using ${ENV_VAR} syntax", i, n.Type, key))
+			}
+		}
+	}
+	return warnings
+}
+
 // ValidationError collects multiple validation issues.
 type ValidationError struct {
 	Errors []string
@@ -30,7 +62,7 @@ func Validate(cfg *Config) error {
 		ve.add("no watchers configured")
 	}
 
-	validTypes := map[string]bool{"apt": true, "dnf": true, "pacman": true, "zypper": true, "apk": true, "docker": true, "wordpress": true, "webproject": true, "macos": true}
+	validTypes := map[string]bool{"apt": true, "dnf": true, "pacman": true, "zypper": true, "apk": true, "macos": true, "homebrew": true, "snap": true, "flatpak": true, "docker": true, "wordpress": true, "webproject": true}
 	for i, w := range cfg.Watchers {
 		if !validTypes[w.Type] {
 			ve.add(fmt.Sprintf("watcher[%d]: unknown type %q", i, w.Type))
@@ -64,13 +96,21 @@ func Validate(cfg *Config) error {
 	}
 
 	validNotifiers := map[string]bool{
-		"slack":    true,
-		"ntfy":     true,
-		"webhook":  true,
-		"discord":  true,
-		"telegram": true,
-		"teams":    true,
-		"email":    true,
+		"slack":      true,
+		"ntfy":       true,
+		"webhook":    true,
+		"discord":    true,
+		"telegram":   true,
+		"teams":      true,
+		"email":      true,
+		"pushover":   true,
+		"gotify":     true,
+		"googlechat": true,
+		"matrix":     true,
+		"mattermost": true,
+		"rocketchat": true,
+		"pagerduty":  true,
+		"pushbullet": true,
 	}
 	for i, n := range cfg.Notifiers {
 		if !validNotifiers[n.Type] {
@@ -120,6 +160,46 @@ func Validate(cfg *Config) error {
 			to := opts.GetStringSlice("to", nil)
 			if len(to) == 0 {
 				ve.add(fmt.Sprintf("notifier[%d] (email): missing 'to' recipients", i))
+			}
+		case "pushover":
+			if opts.GetString("app_token", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (pushover): missing app_token", i))
+			}
+			if opts.GetString("user_key", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (pushover): missing user_key", i))
+			}
+		case "gotify":
+			if opts.GetString("server_url", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (gotify): missing server_url", i))
+			}
+			if opts.GetString("token", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (gotify): missing token", i))
+			}
+		case "googlechat":
+			if opts.GetString("webhook_url", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (googlechat): missing webhook_url", i))
+			}
+		case "matrix":
+			for _, field := range []string{"homeserver", "access_token", "room_id"} {
+				if opts.GetString(field, "") == "" {
+					ve.add(fmt.Sprintf("notifier[%d] (matrix): missing %s", i, field))
+				}
+			}
+		case "mattermost":
+			if opts.GetString("webhook_url", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (mattermost): missing webhook_url", i))
+			}
+		case "rocketchat":
+			if opts.GetString("webhook_url", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (rocketchat): missing webhook_url", i))
+			}
+		case "pagerduty":
+			if opts.GetString("routing_key", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (pagerduty): missing routing_key", i))
+			}
+		case "pushbullet":
+			if opts.GetString("access_token", "") == "" {
+				ve.add(fmt.Sprintf("notifier[%d] (pushbullet): missing access_token", i))
 			}
 		}
 	}

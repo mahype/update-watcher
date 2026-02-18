@@ -7,3 +7,6 @@ coverage.out
 *.so
 *.dylib
 .env
+config.yaml
+config.yml
+*.secret.yaml

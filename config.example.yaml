@@ -1,0 +1,169 @@
+# Copy this file to config.yaml and fill in your credentials.
+# Sensitive values can use environment variable references: ${ENV_VAR} or ${ENV_VAR:-default}
+
+hostname: ""  # Auto-detected if empty
+
+watchers:
+  - type: apt
+    enabled: true
+    options:
+      use_sudo: true
+      security_only: false
+
+  - type: macos
+    enabled: false
+    options:
+      security_only: false
+
+  - type: homebrew
+    enabled: false
+    options:
+      include_casks: true
+
+  - type: snap
+    enabled: false
+
+  - type: flatpak
+    enabled: false
+
+  - type: docker
+    enabled: false
+    options:
+      containers: "all"
+      exclude: []
+
+  - type: wordpress
+    enabled: false
+    options:
+      sites:
+        - name: "My Site"
+          path: "/var/www/html"
+          environment: "native"
+      check_core: true
+      check_plugins: true
+      check_themes: true
+
+  - type: webproject
+    enabled: false
+    options:
+      check_audit: true
+      projects:
+        - name: "My App"
+          path: "/var/www/myapp"
+
+notifiers:
+  # Secrets: webhook_url
+  - type: slack
+    enabled: false
+    options:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+      mention_on_security: "@channel"
+      use_emoji: true
+
+  # Secrets: webhook_url
+  - type: discord
+    enabled: false
+    options:
+      webhook_url: "${DISCORD_WEBHOOK_URL}"
+      username: "Update Watcher"
+
+  # Secrets: webhook_url
+  - type: teams
+    enabled: false
+    options:
+      webhook_url: "${TEAMS_WEBHOOK_URL}"
+
+  # Secrets: bot_token
+  - type: telegram
+    enabled: false
+    options:
+      bot_token: "${TELEGRAM_BOT_TOKEN}"
+      chat_id: "your-chat-id-here"
+
+  # Secrets: username, password
+  - type: email
+    enabled: false
+    options:
+      smtp_host: "smtp.example.com"
+      smtp_port: 587
+      username: "alerts@example.com"
+      password: "${SMTP_PASSWORD}"
+      from: "alerts@example.com"
+      to: ["admin@example.com"]
+      tls: true
+
+  # Secrets: token
+  - type: ntfy
+    enabled: false
+    options:
+      topic: "update-watcher"
+      server_url: "https://ntfy.sh"
+      token: "${NTFY_TOKEN}"
+
+  # Secrets: app_token, user_key
+  - type: pushover
+    enabled: false
+    options:
+      app_token: "${PUSHOVER_APP_TOKEN}"
+      user_key: "${PUSHOVER_USER_KEY}"
+
+  # Secrets: token
+  - type: gotify
+    enabled: false
+    options:
+      server_url: "https://gotify.example.com"
+      token: "${GOTIFY_TOKEN}"
+
+  # Secrets: webhook_url
+  - type: googlechat
+    enabled: false
+    options:
+      webhook_url: "${GOOGLE_CHAT_WEBHOOK_URL}"
+
+  # Secrets: access_token
+  - type: matrix
+    enabled: false
+    options:
+      homeserver: "https://matrix.org"
+      access_token: "${MATRIX_ACCESS_TOKEN}"
+      room_id: "!your-room-id:matrix.org"
+
+  # Secrets: webhook_url
+  - type: mattermost
+    enabled: false
+    options:
+      webhook_url: "${MATTERMOST_WEBHOOK_URL}"
+      username: "Update Watcher"
+
+  # Secrets: webhook_url
+  - type: rocketchat
+    enabled: false
+    options:
+      webhook_url: "${ROCKETCHAT_WEBHOOK_URL}"
+      username: "Update Watcher"
+
+  # Secrets: routing_key
+  - type: pagerduty
+    enabled: false
+    options:
+      routing_key: "${PAGERDUTY_ROUTING_KEY}"
+      severity: "warning"
+
+  # Secrets: access_token
+  - type: pushbullet
+    enabled: false
+    options:
+      access_token: "${PUSHBULLET_ACCESS_TOKEN}"
+
+  # Secrets: url, auth_header
+  - type: webhook
+    enabled: false
+    options:
+      url: "${WEBHOOK_URL}"
+      method: "POST"
+      auth_header: "${WEBHOOK_AUTH_HEADER}"
+
+settings:
+  send_policy: "only-on-updates"
+  log_file: "/var/log/update-watcher.log"
+  schedule: "0 7 * * *"

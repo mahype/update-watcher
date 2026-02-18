@@ -422,6 +422,63 @@ settings:
 | `webhook` | `auth_header` | No | Authorization header value |
 | `webhook` | `headers` | No | Additional HTTP headers |
 
+## 🔐 Security
+
+### Config file permissions
+
+The config file is written with mode `0600` (owner-readable only) because it may contain sensitive credentials like API tokens, webhook URLs, and passwords. After manual edits, verify permissions:
+
+```bash
+ls -la ~/.config/update-watcher/config.yaml
+# Should show: -rw------- (600)
+```
+
+### Environment variable references
+
+Instead of storing secrets in plain text, you can use `${ENV_VAR}` references in your `config.yaml`. This is recommended for CI/CD, Docker, and shared environments.
+
+```yaml
+notifiers:
+  - type: slack
+    enabled: true
+    options:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+
+  - type: email
+    enabled: true
+    options:
+      smtp_host: "smtp.example.com"
+      password: "${SMTP_PASSWORD}"
+```
+
+Supported syntax:
+
+| Pattern | Behavior |
+|---|---|
+| `${VAR}` | Replaced with env var value, empty if unset |
+| `${VAR:-default}` | Replaced with env var value, `default` if unset |
+
+### Using a `.env` file
+
+You can set environment variables in a `.env` file (already in `.gitignore`):
+
+```bash
+# .env
+SLACK_WEBHOOK_URL=https://hooks.slack.com/services/T00/B00/xxx
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF
+SMTP_PASSWORD=my-app-password
+PUSHOVER_APP_TOKEN=azGDORePK8gMaC0QOYAMyEEuzJnyUi
+PUSHOVER_USER_KEY=uQiRzpo4DXghDmr9QzzfQu27cmVRsG
+```
+
+Then load it before running:
+
+```bash
+export $(grep -v '^#' .env | xargs) && update-watcher run
+```
+
+A `config.example.yaml` template with all available options and `${ENV_VAR}` placeholders is included in the repository.
+
 ## 🧙 Setup Wizard
 
 The `setup` command launches a menu-driven wizard that shows the current configuration and lets you add/remove watchers, configure notifiers, and manage settings.
