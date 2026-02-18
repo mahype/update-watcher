@@ -65,11 +65,15 @@ This detects your OS and architecture, downloads the latest release, and install
 
 For non-interactive use (e.g. in provisioning scripts):
 
-```bash
-# With server setup (dedicated user, sudoers, cron)
-curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash -s -- --server
+With server setup (dedicated user, sudoers, cron):
 
-# Without server setup (binary only)
+```bash
+curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash -s -- --server
+```
+
+Without server setup (binary only):
+
+```bash
 curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash -s -- --no-server
 ```
 
@@ -77,17 +81,24 @@ curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/i
 
 Download the latest release for your platform from [GitHub Releases](https://github.com/mahype/update-watcher/releases):
 
+Download (replace OS and ARCH as needed: linux/darwin, amd64/arm64/armv7):
+
 ```bash
-# Download (replace OS and ARCH as needed: linux/darwin, amd64/arm64/armv7)
 curl -sSL -o update-watcher.tar.gz \
   https://github.com/mahype/update-watcher/releases/latest/download/update-watcher_linux_amd64.tar.gz
+```
 
-# Extract and install
+Extract and install:
+
+```bash
 tar xzf update-watcher.tar.gz
 sudo install -m 0755 update-watcher /usr/local/bin/update-watcher
 rm update-watcher.tar.gz
+```
 
-# Verify
+Verify:
+
+```bash
 update-watcher version
 ```
 
@@ -241,36 +252,59 @@ sudo rm -rf /etc/update-watcher
 
 Full removal including the dedicated server user:
 
+Remove cron job:
+
 ```bash
-# 1. Remove cron job
 sudo crontab -u update-watcher -r
+```
 
-# 2. Remove binary
+Remove binary:
+
+```bash
 sudo rm /usr/local/bin/update-watcher
+```
 
-# 3. Remove config
+Remove config:
+
+```bash
 sudo rm -rf /etc/update-watcher
+```
 
-# 4. Remove log file
+Remove log file:
+
+```bash
 sudo rm -f /var/log/update-watcher.log
+```
 
-# 5. Remove sudoers file
+Remove sudoers file:
+
+```bash
 sudo rm -f /etc/sudoers.d/update-watcher
+```
 
-# 6. Remove dedicated user
+Remove dedicated user:
+
+```bash
 sudo userdel -r update-watcher
 ```
 
 ## 🚀 Quick Start
 
+Interactive setup wizard:
+
 ```bash
-# Interactive setup wizard
 update-watcher setup
+```
 
-# Test run without sending notifications
+Test run without sending notifications:
+
+```bash
 update-watcher run --dry-run
+```
 
-# Schedule daily checks (default: 7:00 AM)
+Schedule daily checks (default: 7:00 AM):
+
+```bash
 update-watcher install-cron
 ```
 
