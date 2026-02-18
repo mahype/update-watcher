@@ -1,6 +1,7 @@
 package webhook
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -36,8 +37,7 @@ type WebhookNotifier struct {
 
 // NewFromConfig creates a WebhookNotifier from a notifier configuration.
 func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
-	opts := config.WatcherConfig{Options: cfg.Options}
-	url := opts.GetString("url", "")
+	url := cfg.Options.GetString("url", "")
 	if url == "" {
 		return nil, fmt.Errorf("webhook: url is required")
 	}
@@ -55,9 +55,9 @@ func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
 
 	return &WebhookNotifier{
 		url:         url,
-		method:      opts.GetString("method", "POST"),
-		contentType: opts.GetString("content_type", "application/json"),
-		authHeader:  opts.GetString("auth_header", ""),
+		method:      cfg.Options.GetString("method", "POST"),
+		contentType: cfg.Options.GetString("content_type", "application/json"),
+		authHeader:  cfg.Options.GetString("auth_header", ""),
 		headers:     headers,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
@@ -84,7 +84,7 @@ type CheckerPayload struct {
 	Updates []checker.Update    `json:"updates"`
 }
 
-func (w *WebhookNotifier) Send(hostname string, results []*checker.CheckResult) error {
+func (w *WebhookNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
 	summary := formatting.SummarizeResults(results)
 
 	payload := Payload{

@@ -86,9 +86,8 @@ func addSlack(cfg *config.Config) error {
 }
 
 func editSlack(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	webhookURL := opts.GetString("webhook_url", "")
-	mentionOnSecurity := opts.GetString("mention_on_security", "") != ""
+	webhookURL := existing.Options.GetString("webhook_url", "")
+	mentionOnSecurity := existing.Options.GetString("mention_on_security", "") != ""
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -162,10 +161,9 @@ func addNtfy(cfg *config.Config) error {
 }
 
 func editNtfy(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	serverURL := opts.GetString("server_url", "https://ntfy.sh")
-	topic := opts.GetString("topic", "")
-	token := opts.GetString("token", "")
+	serverURL := existing.Options.GetString("server_url", "https://ntfy.sh")
+	topic := existing.Options.GetString("topic", "")
+	token := existing.Options.GetString("token", "")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -243,10 +241,9 @@ func addWebhook(cfg *config.Config) error {
 }
 
 func editWebhook(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	url := opts.GetString("url", "")
-	method := opts.GetString("method", "POST")
-	authHeader := opts.GetString("auth_header", "")
+	url := existing.Options.GetString("url", "")
+	method := existing.Options.GetString("method", "POST")
+	authHeader := existing.Options.GetString("auth_header", "")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -323,10 +320,9 @@ func addDiscord(cfg *config.Config) error {
 }
 
 func editDiscord(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	webhookURL := opts.GetString("webhook_url", "")
-	username := opts.GetString("username", "Update Watcher")
-	mentionRole := opts.GetString("mention_role", "")
+	webhookURL := existing.Options.GetString("webhook_url", "")
+	username := existing.Options.GetString("username", "Update Watcher")
+	mentionRole := existing.Options.GetString("mention_role", "")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -404,10 +400,9 @@ func addTelegram(cfg *config.Config) error {
 }
 
 func editTelegram(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	botToken := opts.GetString("bot_token", "")
-	chatID := opts.GetString("chat_id", "")
-	disableNotification := opts.GetBool("disable_notification", false)
+	botToken := existing.Options.GetString("bot_token", "")
+	chatID := existing.Options.GetString("chat_id", "")
+	disableNotification := existing.Options.GetBool("disable_notification", false)
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -470,8 +465,7 @@ func addTeams(cfg *config.Config) error {
 }
 
 func editTeams(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	webhookURL := opts.GetString("webhook_url", "")
+	webhookURL := existing.Options.GetString("webhook_url", "")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -571,15 +565,14 @@ func addEmail(cfg *config.Config) error {
 }
 
 func editEmail(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	smtpHost := opts.GetString("smtp_host", "")
+	smtpHost := existing.Options.GetString("smtp_host", "")
 	smtpPort := fmt.Sprintf("%d", getIntOption(existing.Options, "smtp_port", 587))
-	username := opts.GetString("username", "")
-	password := opts.GetString("password", "")
-	from := opts.GetString("from", "")
-	toSlice := opts.GetStringSlice("to", nil)
+	username := existing.Options.GetString("username", "")
+	password := existing.Options.GetString("password", "")
+	from := existing.Options.GetString("from", "")
+	toSlice := existing.Options.GetStringSlice("to", nil)
 	toStr := strings.Join(toSlice, ", ")
-	useTLS := opts.GetBool("tls", true)
+	useTLS := existing.Options.GetBool("tls", true)
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -702,11 +695,10 @@ func addPushover(cfg *config.Config) error {
 }
 
 func editPushover(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	appToken := opts.GetString("app_token", "")
-	userKey := opts.GetString("user_key", "")
-	device := opts.GetString("device", "")
-	sound := opts.GetString("sound", "")
+	appToken := existing.Options.GetString("app_token", "")
+	userKey := existing.Options.GetString("user_key", "")
+	device := existing.Options.GetString("device", "")
+	sound := existing.Options.GetString("sound", "")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -784,9 +776,8 @@ func addGotify(cfg *config.Config) error {
 }
 
 func editGotify(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	serverURL := opts.GetString("server_url", "")
-	token := opts.GetString("token", "")
+	serverURL := existing.Options.GetString("server_url", "")
+	token := existing.Options.GetString("token", "")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -848,9 +839,8 @@ func addGoogleChat(cfg *config.Config) error {
 }
 
 func editGoogleChat(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	webhookURL := opts.GetString("webhook_url", "")
-	threadKey := opts.GetString("thread_key", "")
+	webhookURL := existing.Options.GetString("webhook_url", "")
+	threadKey := existing.Options.GetString("thread_key", "")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -920,10 +910,9 @@ func addMatrix(cfg *config.Config) error {
 }
 
 func editMatrix(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	homeserver := opts.GetString("homeserver", "")
-	accessToken := opts.GetString("access_token", "")
-	roomID := opts.GetString("room_id", "")
+	homeserver := existing.Options.GetString("homeserver", "")
+	accessToken := existing.Options.GetString("access_token", "")
+	roomID := existing.Options.GetString("room_id", "")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -1002,11 +991,10 @@ func addMattermost(cfg *config.Config) error {
 }
 
 func editMattermost(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	webhookURL := opts.GetString("webhook_url", "")
-	channel := opts.GetString("channel", "")
-	username := opts.GetString("username", "Update Watcher")
-	iconURL := opts.GetString("icon_url", "")
+	webhookURL := existing.Options.GetString("webhook_url", "")
+	channel := existing.Options.GetString("channel", "")
+	username := existing.Options.GetString("username", "Update Watcher")
+	iconURL := existing.Options.GetString("icon_url", "")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -1092,10 +1080,9 @@ func addRocketChat(cfg *config.Config) error {
 }
 
 func editRocketChat(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	webhookURL := opts.GetString("webhook_url", "")
-	channel := opts.GetString("channel", "")
-	username := opts.GetString("username", "Update Watcher")
+	webhookURL := existing.Options.GetString("webhook_url", "")
+	channel := existing.Options.GetString("channel", "")
+	username := existing.Options.GetString("username", "Update Watcher")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -1170,9 +1157,8 @@ func addPagerDuty(cfg *config.Config) error {
 }
 
 func editPagerDuty(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	routingKey := opts.GetString("routing_key", "")
-	severity := opts.GetString("severity", "warning")
+	routingKey := existing.Options.GetString("routing_key", "")
+	severity := existing.Options.GetString("severity", "warning")
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -1247,10 +1233,9 @@ func addPushbullet(cfg *config.Config) error {
 }
 
 func editPushbullet(cfg *config.Config, existing *config.NotifierConfig) error {
-	opts := config.WatcherConfig{Options: existing.Options}
-	accessToken := opts.GetString("access_token", "")
-	deviceIden := opts.GetString("device_iden", "")
-	channelTag := opts.GetString("channel_tag", "")
+	accessToken := existing.Options.GetString("access_token", "")
+	deviceIden := existing.Options.GetString("device_iden", "")
+	channelTag := existing.Options.GetString("channel_tag", "")
 
 	err := huh.NewForm(
 		huh.NewGroup(

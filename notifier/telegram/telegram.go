@@ -1,6 +1,7 @@
 package telegram
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -39,12 +40,11 @@ type TelegramNotifier struct {
 
 // NewFromConfig creates a TelegramNotifier from a notifier configuration.
 func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
-	opts := config.WatcherConfig{Options: cfg.Options}
-	botToken := opts.GetString("bot_token", "")
+	botToken := cfg.Options.GetString("bot_token", "")
 	if botToken == "" {
 		return nil, fmt.Errorf("telegram: bot_token is required")
 	}
-	chatID := opts.GetString("chat_id", "")
+	chatID := cfg.Options.GetString("chat_id", "")
 	if chatID == "" {
 		return nil, fmt.Errorf("telegram: chat_id is required")
 	}
@@ -52,8 +52,8 @@ func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
 	return &TelegramNotifier{
 		botToken:            botToken,
 		chatID:              chatID,
-		parseMode:           opts.GetString("parse_mode", "HTML"),
-		disableNotification: opts.GetBool("disable_notification", false),
+		parseMode:           cfg.Options.GetString("parse_mode", "HTML"),
+		disableNotification: cfg.Options.GetBool("disable_notification", false),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -62,7 +62,7 @@ func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
 
 func (t *TelegramNotifier) Name() string { return "telegram" }
 
-func (t *TelegramNotifier) Send(hostname string, results []*checker.CheckResult) error {
+func (t *TelegramNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
 	message := buildHTMLMessage(hostname, results)
 
 	// Split into chunks if too long

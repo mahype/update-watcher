@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/mahype/update-watcher/internal/fsutil"
 )
 
 // Environment represents a WordPress development environment type.
@@ -111,7 +113,7 @@ func DetectEnvironment(sitePath string) Environment {
 	}
 
 	// Check if wp-config.php exists at the given path
-	if fileExists(filepath.Join(absPath, "wp-config.php")) {
+	if fsutil.FileExists(filepath.Join(absPath, "wp-config.php")) {
 		return EnvNative
 	}
 
@@ -122,30 +124,30 @@ func DetectEnvironment(sitePath string) Environment {
 func checkDirectoryMarkers(dir string) Environment {
 	// 1. ddev: .ddev/config.yaml
 	ddevConfig := filepath.Join(dir, ".ddev", "config.yaml")
-	if fileExists(ddevConfig) {
+	if fsutil.FileExists(ddevConfig) {
 		return EnvDdev
 	}
 
 	// 2. Lando: .lando.yml
-	if fileExists(filepath.Join(dir, ".lando.yml")) {
+	if fsutil.FileExists(filepath.Join(dir, ".lando.yml")) {
 		return EnvLando
 	}
 
 	// 3. wp-env: .wp-env.json
-	if fileExists(filepath.Join(dir, ".wp-env.json")) {
+	if fsutil.FileExists(filepath.Join(dir, ".wp-env.json")) {
 		return EnvWpEnv
 	}
 
 	// 4. Bedrock: composer.json with roots/bedrock
 	composerFile := filepath.Join(dir, "composer.json")
-	if fileExists(composerFile) && isBedrockProject(composerFile) {
+	if fsutil.FileExists(composerFile) && isBedrockProject(composerFile) {
 		return EnvBedrock
 	}
 
 	// 5. Docker Compose: docker-compose.yml with wordpress image
 	for _, name := range []string{"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"} {
 		composeFile := filepath.Join(dir, name)
-		if fileExists(composeFile) && hasWordPressService(composeFile) {
+		if fsutil.FileExists(composeFile) && hasWordPressService(composeFile) {
 			return EnvDockerCompose
 		}
 	}
@@ -191,7 +193,7 @@ func checkPathHeuristics(absPath string) Environment {
 	// Valet: check if ~/.config/valet/ exists
 	if homeDir, err := os.UserHomeDir(); err == nil {
 		valetDir := filepath.Join(homeDir, ".config", "valet")
-		if dirExists(valetDir) {
+		if fsutil.DirExists(valetDir) {
 			return EnvValet
 		}
 	}
@@ -250,7 +252,7 @@ func BuildCommand(env Environment, sitePath string, projectDir string) CommandSp
 	case EnvLocalWP:
 		// Local: WordPress is in app/public/
 		wpPath := sitePath
-		if dirExists(filepath.Join(sitePath, "app", "public")) {
+		if fsutil.DirExists(filepath.Join(sitePath, "app", "public")) {
 			wpPath = filepath.Join(sitePath, "app", "public")
 		}
 		return CommandSpec{
@@ -311,55 +313,26 @@ func BuildCommand(env Environment, sitePath string, projectDir string) CommandSp
 // container-based environments. Returns the directory containing the
 // environment marker file.
 func FindProjectDir(sitePath string, env Environment) string {
-	absPath, err := filepath.Abs(sitePath)
-	if err != nil {
-		return sitePath
-	}
-
-	dir := absPath
-	for {
+	return fsutil.FindParentDir(sitePath, func(dir string) bool {
 		switch env {
 		case EnvDdev:
-			if fileExists(filepath.Join(dir, ".ddev", "config.yaml")) {
-				return dir
-			}
+			return fsutil.FileExists(filepath.Join(dir, ".ddev", "config.yaml"))
 		case EnvLando:
-			if fileExists(filepath.Join(dir, ".lando.yml")) {
-				return dir
-			}
+			return fsutil.FileExists(filepath.Join(dir, ".lando.yml"))
 		case EnvWpEnv:
-			if fileExists(filepath.Join(dir, ".wp-env.json")) {
-				return dir
-			}
+			return fsutil.FileExists(filepath.Join(dir, ".wp-env.json"))
 		case EnvDockerCompose:
 			for _, name := range []string{"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"} {
-				if fileExists(filepath.Join(dir, name)) {
-					return dir
+				if fsutil.FileExists(filepath.Join(dir, name)) {
+					return true
 				}
 			}
 		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-
-	return sitePath
+		return false
+	})
 }
 
 // --- helper functions ---
-
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
-}
-
-func dirExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.IsDir()
-}
 
 func isBedrockProject(composerFile string) bool {
 	data, err := os.ReadFile(composerFile)
@@ -406,7 +379,7 @@ func findMAMPPhp() string {
 	}
 	if latest != "" {
 		phpBin := filepath.Join(phpDir, latest, "bin", "php")
-		if fileExists(phpBin) {
+		if fsutil.FileExists(phpBin) {
 			return phpBin
 		}
 	}
@@ -420,7 +393,7 @@ func findXAMPPPhp() string {
 		"C:\\xampp\\php\\php.exe",              // Windows
 	}
 	for _, p := range candidates {
-		if fileExists(p) {
+		if fsutil.FileExists(p) {
 			return p
 		}
 	}

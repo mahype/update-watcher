@@ -1,6 +1,7 @@
 package homebrew
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -28,7 +29,7 @@ func NewFromConfig(cfg config.WatcherConfig) (checker.Checker, error) {
 
 func (h *HomebrewChecker) Name() string { return "homebrew" }
 
-func (h *HomebrewChecker) Check() (*checker.CheckResult, error) {
+func (h *HomebrewChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	result := &checker.CheckResult{
 		CheckerName: h.Name(),
 		CheckedAt:   time.Now(),

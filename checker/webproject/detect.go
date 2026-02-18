@@ -2,6 +2,8 @@ package webproject
 
 import (
 	"path/filepath"
+
+	"github.com/mahype/update-watcher/internal/fsutil"
 )
 
 // DetectManagers scans the project path for marker files and returns
@@ -12,7 +14,7 @@ func DetectManagers(projectPath string) []PackageManager {
 	for _, mgr := range AllManagers() {
 		for _, marker := range mgr.MarkerFiles() {
 			markerPath := filepath.Join(projectPath, marker)
-			if fileExists(markerPath) {
+			if fsutil.FileExists(markerPath) {
 				detected = append(detected, mgr)
 				break
 			}
@@ -58,10 +60,10 @@ func resolveNodeConflicts(managers []PackageManager, projectPath string) []Packa
 	}
 
 	// Resolve based on lockfile presence
-	if hasPnpm && fileExists(filepath.Join(projectPath, "pnpm-lock.yaml")) {
+	if hasPnpm && fsutil.FileExists(filepath.Join(projectPath, "pnpm-lock.yaml")) {
 		hasNpm = false
 		hasYarn = false
-	} else if hasYarn && fileExists(filepath.Join(projectPath, "yarn.lock")) {
+	} else if hasYarn && fsutil.FileExists(filepath.Join(projectPath, "yarn.lock")) {
 		hasNpm = false
 		hasPnpm = false
 	}

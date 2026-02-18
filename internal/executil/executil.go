@@ -19,17 +19,31 @@ type Result struct {
 	ExitCode int
 }
 
-// Run executes a command with the default timeout and returns the result.
-func Run(name string, args ...string) (*Result, error) {
-	return RunWithTimeout(defaultTimeout, name, args...)
+// RunOptions configures how a command is executed.
+type RunOptions struct {
+	Timeout time.Duration
+	Env     []string
+	Dir     string
 }
 
-// RunWithTimeout executes a command with a custom timeout.
-func RunWithTimeout(timeout time.Duration, name string, args ...string) (*Result, error) {
+// RunWith executes a command with the given options.
+func RunWith(opts RunOptions, name string, args ...string) (*Result, error) {
+	timeout := opts.Timeout
+	if timeout == 0 {
+		timeout = defaultTimeout
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, name, args...)
+
+	if opts.Dir != "" {
+		cmd.Dir = opts.Dir
+	}
+	if len(opts.Env) > 0 {
+		cmd.Env = append(os.Environ(), opts.Env...)
+	}
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -51,6 +65,24 @@ func RunWithTimeout(timeout time.Duration, name string, args ...string) (*Result
 	}
 
 	return result, err
+}
+
+// Run executes a command with the default timeout and returns the result.
+func Run(name string, args ...string) (*Result, error) {
+	return RunWith(RunOptions{}, name, args...)
+}
+
+// RunWithTimeout executes a command with a custom timeout.
+func RunWithTimeout(timeout time.Duration, name string, args ...string) (*Result, error) {
+	return RunWith(RunOptions{Timeout: timeout}, name, args...)
+}
+
+// RunMaybeSudo executes a command, optionally with sudo.
+func RunMaybeSudo(sudo bool, name string, args ...string) (*Result, error) {
+	if sudo {
+		return RunAsSudo(name, args...)
+	}
+	return Run(name, args...)
 }
 
 // RunAsSudo executes a command with sudo.
@@ -77,72 +109,17 @@ func RunAsUser(username string, name string, args ...string) (*Result, error) {
 
 // RunWithEnv executes a command with additional environment variables.
 func RunWithEnv(env []string, name string, args ...string) (*Result, error) {
-	return RunWithEnvTimeout(defaultTimeout, env, name, args...)
+	return RunWith(RunOptions{Env: env}, name, args...)
 }
 
 // RunWithEnvTimeout executes a command with additional environment variables and a custom timeout.
 func RunWithEnvTimeout(timeout time.Duration, env []string, name string, args ...string) (*Result, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Env = append(os.Environ(), env...)
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-
-	result := &Result{
-		Stdout: stdout.String(),
-		Stderr: stderr.String(),
-	}
-
-	if cmd.ProcessState != nil {
-		result.ExitCode = cmd.ProcessState.ExitCode()
-	}
-
-	if ctx.Err() == context.DeadlineExceeded {
-		return result, fmt.Errorf("command timed out after %s", timeout)
-	}
-
-	return result, err
+	return RunWith(RunOptions{Timeout: timeout, Env: env}, name, args...)
 }
 
 // RunInDirWithEnv executes a command in a specific directory with additional environment variables.
 func RunInDirWithEnv(dir string, env []string, name string, args ...string) (*Result, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, name, args...)
-	if dir != "" {
-		cmd.Dir = dir
-	}
-	if len(env) > 0 {
-		cmd.Env = append(os.Environ(), env...)
-	}
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-
-	result := &Result{
-		Stdout: stdout.String(),
-		Stderr: stderr.String(),
-	}
-
-	if cmd.ProcessState != nil {
-		result.ExitCode = cmd.ProcessState.ExitCode()
-	}
-
-	if ctx.Err() == context.DeadlineExceeded {
-		return result, fmt.Errorf("command timed out after %s", defaultTimeout)
-	}
-
-	return result, err
+	return RunWith(RunOptions{Dir: dir, Env: env}, name, args...)
 }
 
 // RunAsUserWithEnv executes a command as a specific user with additional environment variables.

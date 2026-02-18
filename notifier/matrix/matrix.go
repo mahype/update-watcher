@@ -1,10 +1,10 @@
 package matrix
 
 import (
+	"context"
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -12,6 +12,7 @@ import (
 
 	"github.com/mahype/update-watcher/checker"
 	"github.com/mahype/update-watcher/config"
+	"github.com/mahype/update-watcher/internal/httputil"
 	"github.com/mahype/update-watcher/notifier"
 	"github.com/mahype/update-watcher/notifier/formatting"
 )
@@ -30,22 +31,20 @@ type MatrixNotifier struct {
 	homeserver  string
 	accessToken string
 	roomID      string
-	httpClient  *http.Client
 	txnCounter  int
 }
 
 // NewFromConfig creates a MatrixNotifier from a notifier configuration.
 func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
-	opts := config.WatcherConfig{Options: cfg.Options}
-	homeserver := opts.GetString("homeserver", "")
+	homeserver := cfg.Options.GetString("homeserver", "")
 	if homeserver == "" {
 		return nil, fmt.Errorf("matrix: homeserver is required")
 	}
-	accessToken := opts.GetString("access_token", "")
+	accessToken := cfg.Options.GetString("access_token", "")
 	if accessToken == "" {
 		return nil, fmt.Errorf("matrix: access_token is required")
 	}
-	roomID := opts.GetString("room_id", "")
+	roomID := cfg.Options.GetString("room_id", "")
 	if roomID == "" {
 		return nil, fmt.Errorf("matrix: room_id is required")
 	}
@@ -54,13 +53,12 @@ func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
 		homeserver:  strings.TrimRight(homeserver, "/"),
 		accessToken: accessToken,
 		roomID:      roomID,
-		httpClient:  &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }
 
 func (m *MatrixNotifier) Name() string { return "matrix" }
 
-func (m *MatrixNotifier) Send(hostname string, results []*checker.CheckResult) error {
+func (m *MatrixNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
 	_, body := formatting.BuildMarkdownMessage(hostname, results, formatting.DefaultOptions())
 	plainText := formatting.BuildPlainTextMessage(hostname, results)
 
@@ -91,15 +89,8 @@ func (m *MatrixNotifier) Send(hostname string, results []*checker.CheckResult) e
 
 	slog.Debug("sending matrix notification", "room", m.roomID)
 
-	resp, err := m.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("matrix: failed to send message: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("matrix: server returned %d: %s", resp.StatusCode, string(respBody))
+	if err := httputil.DoRequest(req); err != nil {
+		return fmt.Errorf("matrix: %w", err)
 	}
 
 	slog.Info("matrix notification sent successfully")

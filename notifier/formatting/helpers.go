@@ -108,6 +108,71 @@ func UpdateCommand(checkerName string) string {
 	}
 }
 
+// UpdateGroup holds updates grouped by a key (e.g., site name, source).
+type UpdateGroup struct {
+	Key     string
+	Updates []checker.Update
+}
+
+// GroupUpdatesBySource groups updates by their Source field, maintaining insertion order.
+func GroupUpdatesBySource(updates []checker.Update) []UpdateGroup {
+	grouped := make(map[string][]checker.Update)
+	var order []string
+	for _, u := range updates {
+		if _, exists := grouped[u.Source]; !exists {
+			order = append(order, u.Source)
+		}
+		grouped[u.Source] = append(grouped[u.Source], u)
+	}
+	result := make([]UpdateGroup, len(order))
+	for i, key := range order {
+		result[i] = UpdateGroup{Key: key, Updates: grouped[key]}
+	}
+	return result
+}
+
+// ProjectManagerGroup holds updates grouped by project and then by manager.
+type ProjectManagerGroup struct {
+	ProjectName string
+	Managers    []UpdateGroup
+}
+
+// GroupByProjectAndManager groups web project updates by project name and manager.
+func GroupByProjectAndManager(updates []checker.Update) []ProjectManagerGroup {
+	type projectData struct {
+		managers map[string][]checker.Update
+		order    []string
+	}
+	projects := make(map[string]*projectData)
+	var projectOrder []string
+
+	for _, u := range updates {
+		projectName, managerName := splitWebProjectSource(u.Source)
+		if _, exists := projects[projectName]; !exists {
+			projects[projectName] = &projectData{
+				managers: make(map[string][]checker.Update),
+			}
+			projectOrder = append(projectOrder, projectName)
+		}
+		pg := projects[projectName]
+		if _, exists := pg.managers[managerName]; !exists {
+			pg.order = append(pg.order, managerName)
+		}
+		pg.managers[managerName] = append(pg.managers[managerName], u)
+	}
+
+	var result []ProjectManagerGroup
+	for _, projectName := range projectOrder {
+		pg := projects[projectName]
+		var managers []UpdateGroup
+		for _, managerName := range pg.order {
+			managers = append(managers, UpdateGroup{Key: managerName, Updates: pg.managers[managerName]})
+		}
+		result = append(result, ProjectManagerGroup{ProjectName: projectName, Managers: managers})
+	}
+	return result
+}
+
 // PriorityIndicator returns a visual indicator for an update's priority.
 func PriorityIndicator(u checker.Update, useEmoji bool) string {
 	if !useEmoji {
@@ -158,20 +223,11 @@ func FormatUpdatesMarkdown(r *checker.CheckResult, useEmoji bool) string {
 }
 
 func formatWordPressUpdatesMarkdown(updates []checker.Update, useEmoji bool) string {
-	grouped := make(map[string][]checker.Update)
-	var order []string
-	for _, u := range updates {
-		if _, exists := grouped[u.Source]; !exists {
-			order = append(order, u.Source)
-		}
-		grouped[u.Source] = append(grouped[u.Source], u)
-	}
-
+	groups := GroupUpdatesBySource(updates)
 	var sections []string
-	for _, source := range order {
-		siteUpdates := grouped[source]
-		lines := []string{fmt.Sprintf("**%s**", source)}
-		for _, u := range siteUpdates {
+	for _, g := range groups {
+		lines := []string{fmt.Sprintf("**%s**", g.Key)}
+		for _, u := range g.Updates {
 			indicator := PriorityIndicator(u, useEmoji)
 			typeName := strings.ToUpper(u.Type[:1]) + u.Type[1:]
 			var line string
@@ -225,35 +281,13 @@ func FormatUpdatesPlainText(r *checker.CheckResult) string {
 }
 
 func formatWebProjectUpdatesMarkdown(updates []checker.Update, useEmoji bool) string {
-	type projectGroup struct {
-		managers map[string][]checker.Update
-		order    []string
-	}
-	projects := make(map[string]*projectGroup)
-	var projectOrder []string
-
-	for _, u := range updates {
-		projectName, managerName := splitWebProjectSource(u.Source)
-		if _, exists := projects[projectName]; !exists {
-			projects[projectName] = &projectGroup{
-				managers: make(map[string][]checker.Update),
-			}
-			projectOrder = append(projectOrder, projectName)
-		}
-		pg := projects[projectName]
-		if _, exists := pg.managers[managerName]; !exists {
-			pg.order = append(pg.order, managerName)
-		}
-		pg.managers[managerName] = append(pg.managers[managerName], u)
-	}
-
+	groups := GroupByProjectAndManager(updates)
 	var sections []string
-	for _, projectName := range projectOrder {
-		pg := projects[projectName]
-		lines := []string{fmt.Sprintf("**%s**", projectName)}
-		for _, managerName := range pg.order {
-			lines = append(lines, fmt.Sprintf("_%s:_", managerName))
-			for _, u := range pg.managers[managerName] {
+	for _, pg := range groups {
+		lines := []string{fmt.Sprintf("**%s**", pg.ProjectName)}
+		for _, mg := range pg.Managers {
+			lines = append(lines, fmt.Sprintf("_%s:_", mg.Key))
+			for _, u := range mg.Updates {
 				indicator := PriorityIndicator(u, useEmoji)
 				var line string
 				if u.Type == checker.UpdateTypeSecurity {
@@ -275,35 +309,13 @@ func formatWebProjectUpdatesMarkdown(updates []checker.Update, useEmoji bool) st
 }
 
 func formatWebProjectUpdatesPlainText(updates []checker.Update) string {
-	type projectGroup struct {
-		managers map[string][]checker.Update
-		order    []string
-	}
-	projects := make(map[string]*projectGroup)
-	var projectOrder []string
-
-	for _, u := range updates {
-		projectName, managerName := splitWebProjectSource(u.Source)
-		if _, exists := projects[projectName]; !exists {
-			projects[projectName] = &projectGroup{
-				managers: make(map[string][]checker.Update),
-			}
-			projectOrder = append(projectOrder, projectName)
-		}
-		pg := projects[projectName]
-		if _, exists := pg.managers[managerName]; !exists {
-			pg.order = append(pg.order, managerName)
-		}
-		pg.managers[managerName] = append(pg.managers[managerName], u)
-	}
-
+	groups := GroupByProjectAndManager(updates)
 	var sections []string
-	for _, projectName := range projectOrder {
-		pg := projects[projectName]
-		lines := []string{fmt.Sprintf("  %s:", projectName)}
-		for _, managerName := range pg.order {
-			lines = append(lines, fmt.Sprintf("    %s:", managerName))
-			for _, u := range pg.managers[managerName] {
+	for _, pg := range groups {
+		lines := []string{fmt.Sprintf("  %s:", pg.ProjectName)}
+		for _, mg := range pg.Managers {
+			lines = append(lines, fmt.Sprintf("    %s:", mg.Key))
+			for _, u := range mg.Updates {
 				indicator := "[!]"
 				if u.Type != checker.UpdateTypeSecurity && u.Priority != checker.PriorityCritical {
 					indicator = "[-]"
@@ -335,20 +347,11 @@ func splitWebProjectSource(source string) (string, string) {
 }
 
 func formatWordPressUpdatesPlainText(updates []checker.Update) string {
-	grouped := make(map[string][]checker.Update)
-	var order []string
-	for _, u := range updates {
-		if _, exists := grouped[u.Source]; !exists {
-			order = append(order, u.Source)
-		}
-		grouped[u.Source] = append(grouped[u.Source], u)
-	}
-
+	groups := GroupUpdatesBySource(updates)
 	var sections []string
-	for _, source := range order {
-		siteUpdates := grouped[source]
-		lines := []string{fmt.Sprintf("  %s:", source)}
-		for _, u := range siteUpdates {
+	for _, g := range groups {
+		lines := []string{fmt.Sprintf("  %s:", g.Key)}
+		for _, u := range g.Updates {
 			indicator := "[!]"
 			if u.Type != checker.UpdateTypeSecurity && u.Priority != checker.PriorityCritical {
 				indicator = "[-]"

@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"regexp"
@@ -43,7 +44,7 @@ type containerInfo struct {
 	ImageID string
 }
 
-func (d *DockerChecker) Check() (*checker.CheckResult, error) {
+func (d *DockerChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	result := &checker.CheckResult{
 		CheckerName: d.Name(),
 		CheckedAt:   time.Now(),
@@ -83,11 +84,7 @@ func (d *DockerChecker) Check() (*checker.CheckResult, error) {
 	}
 	wg.Wait()
 
-	if len(result.Updates) == 0 {
-		result.Summary = "all containers are up to date"
-	} else {
-		result.Summary = fmt.Sprintf("%d containers", len(result.Updates))
-	}
+	result.Summary = checker.BuildSummary(result.Updates, "containers")
 
 	return result, nil
 }

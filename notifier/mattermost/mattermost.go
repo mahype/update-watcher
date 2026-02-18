@@ -1,16 +1,13 @@
 package mattermost
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
-	"time"
 
 	"github.com/mahype/update-watcher/checker"
 	"github.com/mahype/update-watcher/config"
+	"github.com/mahype/update-watcher/internal/httputil"
 	"github.com/mahype/update-watcher/notifier"
 	"github.com/mahype/update-watcher/notifier/formatting"
 )
@@ -30,29 +27,26 @@ type MattermostNotifier struct {
 	channel    string
 	username   string
 	iconURL    string
-	httpClient *http.Client
 }
 
 // NewFromConfig creates a MattermostNotifier from a notifier configuration.
 func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
-	opts := config.WatcherConfig{Options: cfg.Options}
-	webhookURL := opts.GetString("webhook_url", "")
+	webhookURL := cfg.Options.GetString("webhook_url", "")
 	if webhookURL == "" {
 		return nil, fmt.Errorf("mattermost: webhook_url is required")
 	}
 
 	return &MattermostNotifier{
 		webhookURL: webhookURL,
-		channel:    opts.GetString("channel", ""),
-		username:   opts.GetString("username", "Update Watcher"),
-		iconURL:    opts.GetString("icon_url", ""),
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		channel:    cfg.Options.GetString("channel", ""),
+		username:   cfg.Options.GetString("username", "Update Watcher"),
+		iconURL:    cfg.Options.GetString("icon_url", ""),
 	}, nil
 }
 
 func (m *MattermostNotifier) Name() string { return "mattermost" }
 
-func (m *MattermostNotifier) Send(hostname string, results []*checker.CheckResult) error {
+func (m *MattermostNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
 	title, body := formatting.BuildMarkdownMessage(hostname, results, formatting.DefaultOptions())
 	text := fmt.Sprintf("### %s\n\n%s", title, body)
 
@@ -67,22 +61,10 @@ func (m *MattermostNotifier) Send(hostname string, results []*checker.CheckResul
 		payload["icon_url"] = m.iconURL
 	}
 
-	jsonBody, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("mattermost: failed to marshal payload: %w", err)
-	}
-
 	slog.Debug("sending mattermost notification")
 
-	resp, err := m.httpClient.Post(m.webhookURL, "application/json", bytes.NewReader(jsonBody))
-	if err != nil {
-		return fmt.Errorf("mattermost: failed to send message: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("mattermost: server returned %d: %s", resp.StatusCode, string(respBody))
+	if err := httputil.PostJSON(m.webhookURL, payload); err != nil {
+		return fmt.Errorf("mattermost: %w", err)
 	}
 
 	slog.Info("mattermost notification sent successfully")

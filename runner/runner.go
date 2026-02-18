@@ -1,8 +1,10 @@
 package runner
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/mahype/update-watcher/checker"
 	// Import checker implementations so they register themselves
@@ -76,9 +78,12 @@ func New(cfg *config.Config, opts ...Option) *Runner {
 	return r
 }
 
-// Run executes all configured checkers and sends notifications.
+// Run executes all configured checkers in parallel and sends notifications.
 func (r *Runner) Run() (*RunResult, error) {
 	result := &RunResult{}
+	ctx := context.Background()
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 
 	for _, wCfg := range r.cfg.Watchers {
 		if !wCfg.Enabled {
@@ -88,38 +93,52 @@ func (r *Runner) Run() (*RunResult, error) {
 			continue
 		}
 
-		slog.Info("running checker", "type", wCfg.Type)
+		wCfg := wCfg // capture for goroutine
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-		c, err := checker.Create(wCfg.Type, wCfg)
-		if err != nil {
-			result.Errors = append(result.Errors, &checker.CheckError{
-				CheckerName: wCfg.Type,
-				Err:         err,
-				Retryable:   false,
-			})
-			slog.Error("failed to create checker", "type", wCfg.Type, "error", err)
-			continue
-		}
+			slog.Info("running checker", "type", wCfg.Type)
 
-		cr, err := c.Check()
-		if err != nil {
-			result.Errors = append(result.Errors, &checker.CheckError{
-				CheckerName: c.Name(),
-				Err:         err,
-				Retryable:   true,
-			})
-			slog.Error("checker failed", "type", c.Name(), "error", err)
-
-			if cr != nil {
-				cr.Error = err.Error()
-				result.Results = append(result.Results, cr)
+			c, err := checker.Create(wCfg.Type, wCfg)
+			if err != nil {
+				mu.Lock()
+				result.Errors = append(result.Errors, &checker.CheckError{
+					CheckerName: wCfg.Type,
+					Err:         err,
+					Retryable:   false,
+				})
+				mu.Unlock()
+				slog.Error("failed to create checker", "type", wCfg.Type, "error", err)
+				return
 			}
-			continue
-		}
 
-		result.Results = append(result.Results, cr)
-		slog.Info("checker completed", "type", c.Name(), "updates", len(cr.Updates))
+			cr, err := c.Check(ctx)
+
+			mu.Lock()
+			defer mu.Unlock()
+
+			if err != nil {
+				result.Errors = append(result.Errors, &checker.CheckError{
+					CheckerName: c.Name(),
+					Err:         err,
+					Retryable:   true,
+				})
+				slog.Error("checker failed", "type", c.Name(), "error", err)
+
+				if cr != nil {
+					cr.Error = err.Error()
+					result.Results = append(result.Results, cr)
+				}
+				return
+			}
+
+			result.Results = append(result.Results, cr)
+			slog.Info("checker completed", "type", c.Name(), "updates", len(cr.Updates))
+		}()
 	}
+
+	wg.Wait()
 
 	// Aggregate
 	for _, cr := range result.Results {
@@ -131,7 +150,7 @@ func (r *Runner) Run() (*RunResult, error) {
 
 	// Notify
 	if !r.dryRun {
-		if err := r.notify(result); err != nil {
+		if err := r.notify(ctx, result); err != nil {
 			result.Errors = append(result.Errors, err)
 		}
 	} else {
@@ -141,7 +160,7 @@ func (r *Runner) Run() (*RunResult, error) {
 	return result, nil
 }
 
-func (r *Runner) notify(result *RunResult) error {
+func (r *Runner) notify(ctx context.Context, result *RunResult) error {
 	policy := r.cfg.Settings.SendPolicy
 	if policy == "only-on-updates" && result.TotalUpdates == 0 && len(result.Errors) == 0 {
 		slog.Info("no updates found, skipping notification (send_policy: only-on-updates)")
@@ -161,7 +180,7 @@ func (r *Runner) notify(result *RunResult) error {
 		}
 
 		slog.Info("sending notification", "type", n.Name())
-		if err := n.Send(r.cfg.Hostname, result.Results); err != nil {
+		if err := n.Send(ctx, r.cfg.Hostname, result.Results); err != nil {
 			notifyErrors = append(notifyErrors, fmt.Errorf("notifier %q: %w", n.Name(), err))
 			slog.Error("notification failed", "type", n.Name(), "error", err)
 		}

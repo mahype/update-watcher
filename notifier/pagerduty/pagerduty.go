@@ -1,16 +1,13 @@
 package pagerduty
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
-	"time"
 
 	"github.com/mahype/update-watcher/checker"
 	"github.com/mahype/update-watcher/config"
+	"github.com/mahype/update-watcher/internal/httputil"
 	"github.com/mahype/update-watcher/notifier"
 	"github.com/mahype/update-watcher/notifier/formatting"
 )
@@ -30,27 +27,24 @@ func init() {
 type PagerDutyNotifier struct {
 	routingKey string
 	severity   string
-	httpClient *http.Client
 }
 
 // NewFromConfig creates a PagerDutyNotifier from a notifier configuration.
 func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
-	opts := config.WatcherConfig{Options: cfg.Options}
-	routingKey := opts.GetString("routing_key", "")
+	routingKey := cfg.Options.GetString("routing_key", "")
 	if routingKey == "" {
 		return nil, fmt.Errorf("pagerduty: routing_key is required")
 	}
 
 	return &PagerDutyNotifier{
 		routingKey: routingKey,
-		severity:   opts.GetString("severity", "warning"),
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		severity:   cfg.Options.GetString("severity", "warning"),
 	}, nil
 }
 
 func (p *PagerDutyNotifier) Name() string { return "pagerduty" }
 
-func (p *PagerDutyNotifier) Send(hostname string, results []*checker.CheckResult) error {
+func (p *PagerDutyNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
 	summary := formatting.SummarizeResults(results)
 	_, body := formatting.BuildMarkdownMessage(hostname, results, formatting.MessageOptions{UseEmoji: false})
 
@@ -77,22 +71,10 @@ func (p *PagerDutyNotifier) Send(hostname string, results []*checker.CheckResult
 		},
 	}
 
-	jsonBody, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("pagerduty: failed to marshal payload: %w", err)
-	}
-
 	slog.Debug("sending pagerduty event", "severity", severity)
 
-	resp, err := p.httpClient.Post(eventsAPIURL, "application/json", bytes.NewReader(jsonBody))
-	if err != nil {
-		return fmt.Errorf("pagerduty: failed to send event: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("pagerduty: API returned %d: %s", resp.StatusCode, string(respBody))
+	if err := httputil.PostJSON(eventsAPIURL, payload); err != nil {
+		return fmt.Errorf("pagerduty: %w", err)
 	}
 
 	slog.Info("pagerduty event sent successfully", "severity", severity)

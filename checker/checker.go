@@ -1,6 +1,10 @@
 package checker
 
-import "time"
+import (
+	"context"
+	"fmt"
+	"time"
+)
 
 // Checker is the interface that all update checkers must implement.
 type Checker interface {
@@ -8,7 +12,7 @@ type Checker interface {
 	Name() string
 
 	// Check performs the update check and returns results.
-	Check() (*CheckResult, error)
+	Check(ctx context.Context) (*CheckResult, error)
 }
 
 // CheckResult holds the outcome of a single checker run.
@@ -77,4 +81,25 @@ func (e *CheckError) Error() string {
 
 func (e *CheckError) Unwrap() error {
 	return e.Err
+}
+
+// BuildSummary generates a standard summary string for a list of updates.
+// The unit parameter describes what is being updated (e.g. "packages", "snaps",
+// "containers"). When no updates are present the summary reads "all <unit> are
+// up to date"; otherwise it is "<count> <unit>" with an optional security count.
+func BuildSummary(updates []Update, unit string) string {
+	total := len(updates)
+	if total == 0 {
+		return fmt.Sprintf("all %s are up to date", unit)
+	}
+	sec := 0
+	for _, u := range updates {
+		if u.Type == UpdateTypeSecurity {
+			sec++
+		}
+	}
+	if sec > 0 {
+		return fmt.Sprintf("%d %s (%d security)", total, unit, sec)
+	}
+	return fmt.Sprintf("%d %s", total, unit)
 }

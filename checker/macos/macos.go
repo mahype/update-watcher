@@ -1,6 +1,7 @@
 package macos
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -28,7 +29,7 @@ func NewFromConfig(cfg config.WatcherConfig) (checker.Checker, error) {
 
 func (m *MacOSChecker) Name() string { return "macos" }
 
-func (m *MacOSChecker) Check() (*checker.CheckResult, error) {
+func (m *MacOSChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	result := &checker.CheckResult{
 		CheckerName: m.Name(),
 		CheckedAt:   time.Now(),
@@ -42,21 +43,7 @@ func (m *MacOSChecker) Check() (*checker.CheckResult, error) {
 
 	result.Updates = parseSoftwareUpdate(listResult.Stdout, m.securityOnly)
 
-	// Build summary
-	secCount := 0
-	for _, u := range result.Updates {
-		if u.Type == checker.UpdateTypeSecurity {
-			secCount++
-		}
-	}
-
-	if len(result.Updates) == 0 {
-		result.Summary = "all software is up to date"
-	} else if secCount > 0 {
-		result.Summary = fmt.Sprintf("%d updates (%d security)", len(result.Updates), secCount)
-	} else {
-		result.Summary = fmt.Sprintf("%d updates", len(result.Updates))
-	}
+	result.Summary = checker.BuildSummary(result.Updates, "updates")
 
 	return result, nil
 }

@@ -1,6 +1,7 @@
 package wordpress
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -82,7 +83,7 @@ func parseSites(raw []map[string]interface{}) []SiteConfig {
 
 func (w *WordPressChecker) Name() string { return "wordpress" }
 
-func (w *WordPressChecker) Check() (*checker.CheckResult, error) {
+func (w *WordPressChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	result := &checker.CheckResult{
 		CheckerName: w.Name(),
 		CheckedAt:   time.Now(),

@@ -1,6 +1,7 @@
 package apt
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -30,7 +31,7 @@ func NewFromConfig(cfg config.WatcherConfig) (checker.Checker, error) {
 
 func (a *AptChecker) Name() string { return "apt" }
 
-func (a *AptChecker) Check() (*checker.CheckResult, error) {
+func (a *AptChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	result := &checker.CheckResult{
 		CheckerName: a.Name(),
 		CheckedAt:   time.Now(),
@@ -41,11 +42,7 @@ func (a *AptChecker) Check() (*checker.CheckResult, error) {
 	var refreshResult *executil.Result
 	var err error
 
-	if a.useSudo {
-		refreshResult, err = executil.RunAsSudo("apt-get", "update", "-qq")
-	} else {
-		refreshResult, err = executil.Run("apt-get", "update", "-qq")
-	}
+	refreshResult, err = executil.RunMaybeSudo(a.useSudo, "apt-get", "update", "-qq")
 	if err != nil {
 		slog.Warn("apt-get update failed, continuing with possibly stale data", "error", err, "stderr", refreshResult.Stderr)
 		result.Error = fmt.Sprintf("apt-get update failed: %s", err)
@@ -60,21 +57,7 @@ func (a *AptChecker) Check() (*checker.CheckResult, error) {
 
 	result.Updates = parseUpgradable(listResult.Stdout, a.securityOnly)
 
-	// Build summary
-	secCount := 0
-	for _, u := range result.Updates {
-		if u.Type == checker.UpdateTypeSecurity {
-			secCount++
-		}
-	}
-
-	if len(result.Updates) == 0 {
-		result.Summary = "all packages are up to date"
-	} else if secCount > 0 {
-		result.Summary = fmt.Sprintf("%d packages (%d security)", len(result.Updates), secCount)
-	} else {
-		result.Summary = fmt.Sprintf("%d packages", len(result.Updates))
-	}
+	result.Summary = checker.BuildSummary(result.Updates, "packages")
 
 	return result, nil
 }

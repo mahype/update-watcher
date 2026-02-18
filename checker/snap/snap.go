@@ -1,6 +1,7 @@
 package snap
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -24,7 +25,7 @@ func NewFromConfig(_ config.WatcherConfig) (checker.Checker, error) {
 
 func (s *SnapChecker) Name() string { return "snap" }
 
-func (s *SnapChecker) Check() (*checker.CheckResult, error) {
+func (s *SnapChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	result := &checker.CheckResult{
 		CheckerName: s.Name(),
 		CheckedAt:   time.Now(),
@@ -45,11 +46,7 @@ func (s *SnapChecker) Check() (*checker.CheckResult, error) {
 
 	result.Updates = parseRefreshList(listResult.Stdout)
 
-	if len(result.Updates) == 0 {
-		result.Summary = "all snaps are up to date"
-	} else {
-		result.Summary = fmt.Sprintf("%d snaps", len(result.Updates))
-	}
+	result.Summary = checker.BuildSummary(result.Updates, "snaps")
 
 	return result, nil
 }

@@ -1,6 +1,10 @@
 package notifier
 
-import "github.com/mahype/update-watcher/checker"
+import (
+	"context"
+
+	"github.com/mahype/update-watcher/checker"
+)
 
 // Notifier is the interface for all notification backends.
 type Notifier interface {
@@ -8,7 +12,7 @@ type Notifier interface {
 	Name() string
 
 	// Send delivers the aggregated check results.
-	Send(hostname string, results []*checker.CheckResult) error
+	Send(ctx context.Context, hostname string, results []*checker.CheckResult) error
 }
 
 // SendPolicy controls when notifications are dispatched.

@@ -1,16 +1,13 @@
 package discord
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
-	"time"
 
 	"github.com/mahype/update-watcher/checker"
 	"github.com/mahype/update-watcher/config"
+	"github.com/mahype/update-watcher/internal/httputil"
 	"github.com/mahype/update-watcher/notifier"
 )
 
@@ -29,31 +26,26 @@ type DiscordNotifier struct {
 	username    string
 	avatarURL   string
 	mentionRole string
-	httpClient  *http.Client
 }
 
 // NewFromConfig creates a DiscordNotifier from a notifier configuration.
 func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
-	opts := config.WatcherConfig{Options: cfg.Options}
-	webhookURL := opts.GetString("webhook_url", "")
+	webhookURL := cfg.Options.GetString("webhook_url", "")
 	if webhookURL == "" {
 		return nil, fmt.Errorf("discord: webhook_url is required")
 	}
 
 	return &DiscordNotifier{
 		webhookURL:  webhookURL,
-		username:    opts.GetString("username", "Update Watcher"),
-		avatarURL:   opts.GetString("avatar_url", ""),
-		mentionRole: opts.GetString("mention_role", ""),
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		username:    cfg.Options.GetString("username", "Update Watcher"),
+		avatarURL:   cfg.Options.GetString("avatar_url", ""),
+		mentionRole: cfg.Options.GetString("mention_role", ""),
 	}, nil
 }
 
 func (d *DiscordNotifier) Name() string { return "discord" }
 
-func (d *DiscordNotifier) Send(hostname string, results []*checker.CheckResult) error {
+func (d *DiscordNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
 	embeds := BuildEmbeds(hostname, results)
 
 	payload := map[string]interface{}{
@@ -77,22 +69,10 @@ func (d *DiscordNotifier) Send(hostname string, results []*checker.CheckResult) 
 		}
 	}
 
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("discord: failed to marshal payload: %w", err)
-	}
-
 	slog.Debug("sending discord notification")
 
-	resp, err := d.httpClient.Post(d.webhookURL, "application/json", bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("discord: failed to send notification: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("discord: webhook returned %d: %s", resp.StatusCode, string(respBody))
+	if err := httputil.PostJSON(d.webhookURL, payload); err != nil {
+		return fmt.Errorf("discord: %w", err)
 	}
 
 	slog.Info("discord notification sent successfully")

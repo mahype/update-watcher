@@ -1,6 +1,7 @@
 package email
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log/slog"
@@ -36,45 +37,33 @@ type EmailNotifier struct {
 
 // NewFromConfig creates an EmailNotifier from a notifier configuration.
 func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
-	opts := config.WatcherConfig{Options: cfg.Options}
 
-	smtpHost := opts.GetString("smtp_host", "")
+	smtpHost := cfg.Options.GetString("smtp_host", "")
 	if smtpHost == "" {
 		return nil, fmt.Errorf("email: smtp_host is required")
 	}
 
-	username := opts.GetString("username", "")
+	username := cfg.Options.GetString("username", "")
 	if username == "" {
 		return nil, fmt.Errorf("email: username is required")
 	}
 
-	password := opts.GetString("password", "")
+	password := cfg.Options.GetString("password", "")
 	if password == "" {
 		return nil, fmt.Errorf("email: password is required")
 	}
 
-	from := opts.GetString("from", "")
+	from := cfg.Options.GetString("from", "")
 	if from == "" {
 		return nil, fmt.Errorf("email: from is required")
 	}
 
-	to := opts.GetStringSlice("to", nil)
+	to := cfg.Options.GetStringSlice("to", nil)
 	if len(to) == 0 {
 		return nil, fmt.Errorf("email: at least one recipient in 'to' is required")
 	}
 
-	// Parse port from options
-	smtpPort := 587
-	if portVal, ok := cfg.Options["smtp_port"]; ok {
-		switch v := portVal.(type) {
-		case int:
-			smtpPort = v
-		case float64:
-			smtpPort = int(v)
-		case string:
-			fmt.Sscanf(v, "%d", &smtpPort)
-		}
-	}
+	smtpPort := cfg.Options.GetInt("smtp_port", 587)
 
 	return &EmailNotifier{
 		smtpHost: smtpHost,
@@ -83,13 +72,13 @@ func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
 		password: password,
 		from:     from,
 		to:       to,
-		useTLS:   opts.GetBool("tls", true),
+		useTLS:   cfg.Options.GetBool("tls", true),
 	}, nil
 }
 
 func (e *EmailNotifier) Name() string { return "email" }
 
-func (e *EmailNotifier) Send(hostname string, results []*checker.CheckResult) error {
+func (e *EmailNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
 	subject := fmt.Sprintf("Update Report: %s", hostname)
 	htmlBody := BuildHTMLMessage(hostname, results)
 	plainBody := formatting.BuildPlainTextMessage(hostname, results)

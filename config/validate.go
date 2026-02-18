@@ -26,9 +26,8 @@ func WarnPlaintextSecrets(cfg *Config) []string {
 		if !n.Enabled {
 			continue
 		}
-		opts := WatcherConfig{Options: n.Options}
 		for key := range secretKeys {
-			val := opts.GetString(key, "")
+			val := n.Options.GetString(key, "")
 			if val != "" && !strings.HasPrefix(val, "${") {
 				warnings = append(warnings, fmt.Sprintf("notifiers[%d] (%s): %s contains a plaintext secret — consider using ${ENV_VAR} syntax", i, n.Type, key))
 			}
@@ -121,84 +120,82 @@ func Validate(cfg *Config) error {
 			continue
 		}
 
-		opts := WatcherConfig{Options: n.Options}
-
 		switch n.Type {
 		case "slack":
-			if opts.GetString("webhook_url", "") == "" {
+			if n.Options.GetString("webhook_url", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (slack): missing webhook_url", i))
 			}
 		case "ntfy":
-			if opts.GetString("topic", "") == "" {
+			if n.Options.GetString("topic", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (ntfy): missing topic", i))
 			}
 		case "webhook":
-			if opts.GetString("url", "") == "" {
+			if n.Options.GetString("url", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (webhook): missing url", i))
 			}
 		case "discord":
-			if opts.GetString("webhook_url", "") == "" {
+			if n.Options.GetString("webhook_url", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (discord): missing webhook_url", i))
 			}
 		case "telegram":
-			if opts.GetString("bot_token", "") == "" {
+			if n.Options.GetString("bot_token", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (telegram): missing bot_token", i))
 			}
-			if opts.GetString("chat_id", "") == "" {
+			if n.Options.GetString("chat_id", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (telegram): missing chat_id", i))
 			}
 		case "teams":
-			if opts.GetString("webhook_url", "") == "" {
+			if n.Options.GetString("webhook_url", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (teams): missing webhook_url", i))
 			}
 		case "email":
 			for _, field := range []string{"smtp_host", "username", "password", "from"} {
-				if opts.GetString(field, "") == "" {
+				if n.Options.GetString(field, "") == "" {
 					ve.add(fmt.Sprintf("notifier[%d] (email): missing %s", i, field))
 				}
 			}
-			to := opts.GetStringSlice("to", nil)
+			to := n.Options.GetStringSlice("to", nil)
 			if len(to) == 0 {
 				ve.add(fmt.Sprintf("notifier[%d] (email): missing 'to' recipients", i))
 			}
 		case "pushover":
-			if opts.GetString("app_token", "") == "" {
+			if n.Options.GetString("app_token", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (pushover): missing app_token", i))
 			}
-			if opts.GetString("user_key", "") == "" {
+			if n.Options.GetString("user_key", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (pushover): missing user_key", i))
 			}
 		case "gotify":
-			if opts.GetString("server_url", "") == "" {
+			if n.Options.GetString("server_url", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (gotify): missing server_url", i))
 			}
-			if opts.GetString("token", "") == "" {
+			if n.Options.GetString("token", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (gotify): missing token", i))
 			}
 		case "googlechat":
-			if opts.GetString("webhook_url", "") == "" {
+			if n.Options.GetString("webhook_url", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (googlechat): missing webhook_url", i))
 			}
 		case "matrix":
 			for _, field := range []string{"homeserver", "access_token", "room_id"} {
-				if opts.GetString(field, "") == "" {
+				if n.Options.GetString(field, "") == "" {
 					ve.add(fmt.Sprintf("notifier[%d] (matrix): missing %s", i, field))
 				}
 			}
 		case "mattermost":
-			if opts.GetString("webhook_url", "") == "" {
+			if n.Options.GetString("webhook_url", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (mattermost): missing webhook_url", i))
 			}
 		case "rocketchat":
-			if opts.GetString("webhook_url", "") == "" {
+			if n.Options.GetString("webhook_url", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (rocketchat): missing webhook_url", i))
 			}
 		case "pagerduty":
-			if opts.GetString("routing_key", "") == "" {
+			if n.Options.GetString("routing_key", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (pagerduty): missing routing_key", i))
 			}
 		case "pushbullet":
-			if opts.GetString("access_token", "") == "" {
+			if n.Options.GetString("access_token", "") == "" {
 				ve.add(fmt.Sprintf("notifier[%d] (pushbullet): missing access_token", i))
 			}
 		}

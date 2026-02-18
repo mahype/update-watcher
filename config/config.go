@@ -6,45 +6,19 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 
 	"github.com/mahype/update-watcher/internal/hostname"
 	"github.com/spf13/viper"
 	"go.yaml.in/yaml/v3"
 )
 
-// Config is the top-level configuration structure.
-type Config struct {
-	Hostname  string           `yaml:"hostname" mapstructure:"hostname"`
-	Watchers  []WatcherConfig  `yaml:"watchers" mapstructure:"watchers"`
-	Notifiers []NotifierConfig `yaml:"notifiers" mapstructure:"notifiers"`
-	Settings  GlobalSettings   `yaml:"settings" mapstructure:"settings"`
-}
+// OptionsMap holds typed configuration options with accessor methods.
+type OptionsMap map[string]interface{}
 
-// WatcherConfig represents a single watcher entry.
-type WatcherConfig struct {
-	Type    string                 `yaml:"type" mapstructure:"type"`
-	Enabled bool                   `yaml:"enabled" mapstructure:"enabled"`
-	Options map[string]interface{} `yaml:"options,omitempty" mapstructure:"options"`
-}
-
-// NotifierConfig represents a single notifier entry.
-type NotifierConfig struct {
-	Type    string                 `yaml:"type" mapstructure:"type"`
-	Enabled bool                   `yaml:"enabled" mapstructure:"enabled"`
-	Options map[string]interface{} `yaml:"options,omitempty" mapstructure:"options"`
-}
-
-// GlobalSettings holds cross-cutting settings.
-type GlobalSettings struct {
-	SendPolicy string `yaml:"send_policy" mapstructure:"send_policy"`
-	LogFile    string `yaml:"log_file,omitempty" mapstructure:"log_file"`
-	Schedule   string `yaml:"schedule,omitempty" mapstructure:"schedule"`
-	Quiet      bool   `yaml:"quiet,omitempty" mapstructure:"quiet"`
-}
-
-// GetBool reads a boolean from Options with a default fallback.
-func (w WatcherConfig) GetBool(key string, defaultVal bool) bool {
-	v, ok := w.Options[key]
+// GetBool reads a boolean from the map with a default fallback.
+func (o OptionsMap) GetBool(key string, defaultVal bool) bool {
+	v, ok := o[key]
 	if !ok {
 		return defaultVal
 	}
@@ -55,9 +29,9 @@ func (w WatcherConfig) GetBool(key string, defaultVal bool) bool {
 	return b
 }
 
-// GetString reads a string from Options with a default fallback.
-func (w WatcherConfig) GetString(key string, defaultVal string) string {
-	v, ok := w.Options[key]
+// GetString reads a string from the map with a default fallback.
+func (o OptionsMap) GetString(key string, defaultVal string) string {
+	v, ok := o[key]
 	if !ok {
 		return defaultVal
 	}
@@ -68,9 +42,31 @@ func (w WatcherConfig) GetString(key string, defaultVal string) string {
 	return s
 }
 
-// GetStringSlice reads a string slice from Options with a default fallback.
-func (w WatcherConfig) GetStringSlice(key string, defaultVal []string) []string {
-	v, ok := w.Options[key]
+// GetInt reads an integer from the map with a default fallback.
+// Handles int, float64 (from YAML/JSON unmarshaling), and string values.
+func (o OptionsMap) GetInt(key string, defaultVal int) int {
+	v, ok := o[key]
+	if !ok {
+		return defaultVal
+	}
+	switch p := v.(type) {
+	case int:
+		return p
+	case float64:
+		return int(p)
+	case string:
+		if n, err := strconv.Atoi(p); err == nil {
+			return n
+		}
+		return defaultVal
+	default:
+		return defaultVal
+	}
+}
+
+// GetStringSlice reads a string slice from the map with a default fallback.
+func (o OptionsMap) GetStringSlice(key string, defaultVal []string) []string {
+	v, ok := o[key]
 	if !ok {
 		return defaultVal
 	}
@@ -90,9 +86,9 @@ func (w WatcherConfig) GetStringSlice(key string, defaultVal []string) []string 
 	}
 }
 
-// GetMapSlice reads a slice of maps from Options.
-func (w WatcherConfig) GetMapSlice(key string) []map[string]interface{} {
-	v, ok := w.Options[key]
+// GetMapSlice reads a slice of maps from the map.
+func (o OptionsMap) GetMapSlice(key string) []map[string]interface{} {
+	v, ok := o[key]
 	if !ok {
 		return nil
 	}
@@ -108,6 +104,61 @@ func (w WatcherConfig) GetMapSlice(key string) []map[string]interface{} {
 	default:
 		return nil
 	}
+}
+
+// Config is the top-level configuration structure.
+type Config struct {
+	Hostname  string           `yaml:"hostname" mapstructure:"hostname"`
+	Watchers  []WatcherConfig  `yaml:"watchers" mapstructure:"watchers"`
+	Notifiers []NotifierConfig `yaml:"notifiers" mapstructure:"notifiers"`
+	Settings  GlobalSettings   `yaml:"settings" mapstructure:"settings"`
+}
+
+// WatcherConfig represents a single watcher entry.
+type WatcherConfig struct {
+	Type    string     `yaml:"type" mapstructure:"type"`
+	Enabled bool       `yaml:"enabled" mapstructure:"enabled"`
+	Options OptionsMap `yaml:"options,omitempty" mapstructure:"options"`
+}
+
+// NotifierConfig represents a single notifier entry.
+type NotifierConfig struct {
+	Type    string     `yaml:"type" mapstructure:"type"`
+	Enabled bool       `yaml:"enabled" mapstructure:"enabled"`
+	Options OptionsMap `yaml:"options,omitempty" mapstructure:"options"`
+}
+
+// GlobalSettings holds cross-cutting settings.
+type GlobalSettings struct {
+	SendPolicy string `yaml:"send_policy" mapstructure:"send_policy"`
+	LogFile    string `yaml:"log_file,omitempty" mapstructure:"log_file"`
+	Schedule   string `yaml:"schedule,omitempty" mapstructure:"schedule"`
+	Quiet      bool   `yaml:"quiet,omitempty" mapstructure:"quiet"`
+}
+
+// GetBool delegates to Options.GetBool for backward compatibility.
+func (w WatcherConfig) GetBool(key string, defaultVal bool) bool {
+	return w.Options.GetBool(key, defaultVal)
+}
+
+// GetString delegates to Options.GetString for backward compatibility.
+func (w WatcherConfig) GetString(key string, defaultVal string) string {
+	return w.Options.GetString(key, defaultVal)
+}
+
+// GetInt delegates to Options.GetInt for backward compatibility.
+func (w WatcherConfig) GetInt(key string, defaultVal int) int {
+	return w.Options.GetInt(key, defaultVal)
+}
+
+// GetStringSlice delegates to Options.GetStringSlice for backward compatibility.
+func (w WatcherConfig) GetStringSlice(key string, defaultVal []string) []string {
+	return w.Options.GetStringSlice(key, defaultVal)
+}
+
+// GetMapSlice delegates to Options.GetMapSlice for backward compatibility.
+func (w WatcherConfig) GetMapSlice(key string) []map[string]interface{} {
+	return w.Options.GetMapSlice(key)
 }
 
 // envVarPattern matches ${VAR} and ${VAR:-default} patterns.
@@ -131,7 +182,7 @@ func resolveEnvVars(input string) string {
 
 // resolveOptionsEnvVars walks an options map and resolves ${ENV_VAR} references
 // in all string values, including those nested in slices and maps.
-func resolveOptionsEnvVars(options map[string]interface{}) {
+func resolveOptionsEnvVars(options OptionsMap) {
 	for key, val := range options {
 		switch v := val.(type) {
 		case string:

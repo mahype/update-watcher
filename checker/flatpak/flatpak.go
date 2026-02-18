@@ -1,6 +1,7 @@
 package flatpak
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -24,7 +25,7 @@ func NewFromConfig(_ config.WatcherConfig) (checker.Checker, error) {
 
 func (f *FlatpakChecker) Name() string { return "flatpak" }
 
-func (f *FlatpakChecker) Check() (*checker.CheckResult, error) {
+func (f *FlatpakChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	result := &checker.CheckResult{
 		CheckerName: f.Name(),
 		CheckedAt:   time.Now(),
@@ -38,11 +39,7 @@ func (f *FlatpakChecker) Check() (*checker.CheckResult, error) {
 
 	result.Updates = parseRemoteUpdates(listResult.Stdout)
 
-	if len(result.Updates) == 0 {
-		result.Summary = "all flatpaks are up to date"
-	} else {
-		result.Summary = fmt.Sprintf("%d applications", len(result.Updates))
-	}
+	result.Summary = checker.BuildSummary(result.Updates, "applications")
 
 	return result, nil
 }

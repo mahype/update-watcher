@@ -1,6 +1,7 @@
 package pushover
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -37,39 +38,30 @@ type PushoverNotifier struct {
 
 // NewFromConfig creates a PushoverNotifier from a notifier configuration.
 func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
-	opts := config.WatcherConfig{Options: cfg.Options}
-	appToken := opts.GetString("app_token", "")
+	appToken := cfg.Options.GetString("app_token", "")
 	if appToken == "" {
 		return nil, fmt.Errorf("pushover: app_token is required")
 	}
-	userKey := opts.GetString("user_key", "")
+	userKey := cfg.Options.GetString("user_key", "")
 	if userKey == "" {
 		return nil, fmt.Errorf("pushover: user_key is required")
 	}
 
-	priority := 0
-	if v, ok := cfg.Options["priority"]; ok {
-		switch p := v.(type) {
-		case int:
-			priority = p
-		case float64:
-			priority = int(p)
-		}
-	}
+	priority := cfg.Options.GetInt("priority", 0)
 
 	return &PushoverNotifier{
 		appToken:   appToken,
 		userKey:    userKey,
-		device:     opts.GetString("device", ""),
+		device:     cfg.Options.GetString("device", ""),
 		priority:   priority,
-		sound:      opts.GetString("sound", ""),
+		sound:      cfg.Options.GetString("sound", ""),
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 	}, nil
 }
 
 func (p *PushoverNotifier) Name() string { return "pushover" }
 
-func (p *PushoverNotifier) Send(hostname string, results []*checker.CheckResult) error {
+func (p *PushoverNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
 	title, body := formatting.BuildMarkdownMessage(hostname, results, formatting.DefaultOptions())
 	summary := formatting.SummarizeResults(results)
 

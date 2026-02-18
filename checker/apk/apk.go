@@ -1,6 +1,7 @@
 package apk
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -28,7 +29,7 @@ func NewFromConfig(cfg config.WatcherConfig) (checker.Checker, error) {
 
 func (a *ApkChecker) Name() string { return "apk" }
 
-func (a *ApkChecker) Check() (*checker.CheckResult, error) {
+func (a *ApkChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	result := &checker.CheckResult{
 		CheckerName: a.Name(),
 		CheckedAt:   time.Now(),
@@ -39,11 +40,7 @@ func (a *ApkChecker) Check() (*checker.CheckResult, error) {
 	var updateResult *executil.Result
 	var err error
 
-	if a.useSudo {
-		updateResult, err = executil.RunAsSudo("apk", "update")
-	} else {
-		updateResult, err = executil.Run("apk", "update")
-	}
+	updateResult, err = executil.RunMaybeSudo(a.useSudo, "apk", "update")
 	if err != nil {
 		slog.Warn("apk update failed, continuing with possibly stale data", "error", err, "stderr", updateResult.Stderr)
 		result.Error = fmt.Sprintf("apk update failed: %s", err)
@@ -58,11 +55,7 @@ func (a *ApkChecker) Check() (*checker.CheckResult, error) {
 
 	result.Updates = parseVersionOutput(listResult.Stdout)
 
-	if len(result.Updates) == 0 {
-		result.Summary = "all packages are up to date"
-	} else {
-		result.Summary = fmt.Sprintf("%d packages", len(result.Updates))
-	}
+	result.Summary = checker.BuildSummary(result.Updates, "packages")
 
 	return result, nil
 }

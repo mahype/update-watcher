@@ -1,6 +1,7 @@
 package ntfy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -34,17 +35,16 @@ type NtfyNotifier struct {
 
 // NewFromConfig creates a NtfyNotifier from a notifier configuration.
 func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
-	opts := config.WatcherConfig{Options: cfg.Options}
-	topic := opts.GetString("topic", "")
+	topic := cfg.Options.GetString("topic", "")
 	if topic == "" {
 		return nil, fmt.Errorf("ntfy: topic is required")
 	}
 
 	return &NtfyNotifier{
-		serverURL: opts.GetString("server_url", "https://ntfy.sh"),
+		serverURL: cfg.Options.GetString("server_url", "https://ntfy.sh"),
 		topic:     topic,
-		token:     opts.GetString("token", ""),
-		priority:  opts.GetString("priority", "default"),
+		token:     cfg.Options.GetString("token", ""),
+		priority:  cfg.Options.GetString("priority", "default"),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -53,7 +53,7 @@ func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
 
 func (n *NtfyNotifier) Name() string { return "ntfy" }
 
-func (n *NtfyNotifier) Send(hostname string, results []*checker.CheckResult) error {
+func (n *NtfyNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
 	title, body := formatting.BuildMarkdownMessage(hostname, results, formatting.DefaultOptions())
 	summary := formatting.SummarizeResults(results)
 

@@ -1,6 +1,7 @@
 package pacman
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"time"
@@ -28,7 +29,7 @@ func NewFromConfig(cfg config.WatcherConfig) (checker.Checker, error) {
 
 func (p *PacmanChecker) Name() string { return "pacman" }
 
-func (p *PacmanChecker) Check() (*checker.CheckResult, error) {
+func (p *PacmanChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	result := &checker.CheckResult{
 		CheckerName: p.Name(),
 		CheckedAt:   time.Now(),
@@ -39,11 +40,7 @@ func (p *PacmanChecker) Check() (*checker.CheckResult, error) {
 	var syncResult *executil.Result
 	var err error
 
-	if p.useSudo {
-		syncResult, err = executil.RunAsSudo("pacman", "-Sy")
-	} else {
-		syncResult, err = executil.Run("pacman", "-Sy")
-	}
+	syncResult, err = executil.RunMaybeSudo(p.useSudo, "pacman", "-Sy")
 	if err != nil {
 		slog.Warn("pacman -Sy failed, continuing with possibly stale data", "error", err, "stderr", syncResult.Stderr)
 		result.Error = fmt.Sprintf("pacman -Sy failed: %s", err)
@@ -63,11 +60,7 @@ func (p *PacmanChecker) Check() (*checker.CheckResult, error) {
 
 	result.Updates = parseUpgradable(listResult.Stdout)
 
-	if len(result.Updates) == 0 {
-		result.Summary = "all packages are up to date"
-	} else {
-		result.Summary = fmt.Sprintf("%d packages", len(result.Updates))
-	}
+	result.Summary = checker.BuildSummary(result.Updates, "packages")
 
 	return result, nil
 }

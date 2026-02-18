@@ -2,11 +2,11 @@ package webproject
 
 import (
 	"log/slog"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/mahype/update-watcher/internal/executil"
+	"github.com/mahype/update-watcher/internal/fsutil"
 )
 
 // Environment represents a web project environment type.
@@ -68,16 +68,16 @@ func DetectEnvironment(projectPath string) Environment {
 
 	dir := absPath
 	for {
-		if fileExists(filepath.Join(dir, ".ddev", "config.yaml")) {
+		if fsutil.FileExists(filepath.Join(dir, ".ddev", "config.yaml")) {
 			slog.Debug("detected webproject environment", "env", EnvDdev, "dir", dir)
 			return EnvDdev
 		}
-		if fileExists(filepath.Join(dir, ".lando.yml")) {
+		if fsutil.FileExists(filepath.Join(dir, ".lando.yml")) {
 			slog.Debug("detected webproject environment", "env", EnvLando, "dir", dir)
 			return EnvLando
 		}
 		for _, name := range []string{"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"} {
-			if fileExists(filepath.Join(dir, name)) {
+			if fsutil.FileExists(filepath.Join(dir, name)) {
 				slog.Debug("detected webproject environment", "env", EnvDockerCompose, "dir", dir)
 				return EnvDockerCompose
 			}
@@ -167,41 +167,19 @@ func ExecuteCommand(spec CommandSpec) (*executil.Result, error) {
 // findProjectDir walks up from projectPath to find the directory containing
 // the environment marker file.
 func findProjectDir(projectPath string, env Environment) string {
-	absPath, err := filepath.Abs(projectPath)
-	if err != nil {
-		return projectPath
-	}
-
-	dir := absPath
-	for {
+	return fsutil.FindParentDir(projectPath, func(dir string) bool {
 		switch env {
 		case EnvDdev:
-			if fileExists(filepath.Join(dir, ".ddev", "config.yaml")) {
-				return dir
-			}
+			return fsutil.FileExists(filepath.Join(dir, ".ddev", "config.yaml"))
 		case EnvLando:
-			if fileExists(filepath.Join(dir, ".lando.yml")) {
-				return dir
-			}
+			return fsutil.FileExists(filepath.Join(dir, ".lando.yml"))
 		case EnvDockerCompose:
 			for _, name := range []string{"docker-compose.yml", "docker-compose.yaml", "compose.yml", "compose.yaml"} {
-				if fileExists(filepath.Join(dir, name)) {
-					return dir
+				if fsutil.FileExists(filepath.Join(dir, name)) {
+					return true
 				}
 			}
 		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-
-	return projectPath
-}
-
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
+		return false
+	})
 }

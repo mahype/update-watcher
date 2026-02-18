@@ -1,6 +1,7 @@
 package webproject
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -95,7 +96,7 @@ func parseProjects(cfg config.WatcherConfig) []ProjectConfig {
 
 func (w *WebProjectChecker) Name() string { return "webproject" }
 
-func (w *WebProjectChecker) Check() (*checker.CheckResult, error) {
+func (w *WebProjectChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	result := &checker.CheckResult{
 		CheckerName: w.Name(),
 		CheckedAt:   time.Now(),
