@@ -2,6 +2,7 @@ package wizard
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
@@ -20,6 +21,18 @@ import (
 func isToolAvailable(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
+}
+
+// sudoDescription returns a description for the use_sudo confirm dialog,
+// including whether the sudoers file is already configured.
+func sudoDescription(command string) string {
+	desc := fmt.Sprintf("Required to run '%s' with root privileges.", command)
+	if _, err := os.Stat("/etc/sudoers.d/update-watcher"); err == nil {
+		desc += " Sudoers file detected."
+	} else {
+		desc += " Requires /etc/sudoers.d/update-watcher to be configured."
+	}
+	return desc
 }
 
 const (
@@ -403,6 +416,7 @@ func addAptWatcher(cfg *config.Config) {
 				Value(&securityOnly),
 			huh.NewConfirm().
 				Title("Use sudo for apt operations?").
+				Description(sudoDescription("apt-get update")).
 				Value(&useSudo),
 		),
 	).Run()
@@ -438,6 +452,7 @@ func addDnfWatcher(cfg *config.Config) {
 				Value(&securityOnly),
 			huh.NewConfirm().
 				Title("Use sudo for dnf operations?").
+				Description(sudoDescription("dnf check-update")).
 				Value(&useSudo),
 		),
 	).Run()
@@ -468,6 +483,7 @@ func addPacmanWatcher(cfg *config.Config) {
 		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Use sudo for pacman sync operations?").
+				Description(sudoDescription("pacman -Sy")).
 				Value(&useSudo),
 		),
 	).Run()
@@ -502,6 +518,7 @@ func addZypperWatcher(cfg *config.Config) {
 				Value(&securityOnly),
 			huh.NewConfirm().
 				Title("Use sudo for zypper operations?").
+				Description(sudoDescription("zypper refresh")).
 				Value(&useSudo),
 		),
 	).Run()
@@ -532,6 +549,7 @@ func addApkWatcher(cfg *config.Config) {
 		huh.NewGroup(
 			huh.NewConfirm().
 				Title("Use sudo for apk operations?").
+				Description(sudoDescription("apk update")).
 				Value(&useSudo),
 		),
 	).Run()
