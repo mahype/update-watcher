@@ -168,6 +168,9 @@ func runTestCheck(cfg *config.Config) {
 
 	output.PrintResults(result.Results, result.Errors)
 	fmt.Println()
+
+	fmt.Print("  Press Enter to continue...")
+	fmt.Scanln()
 }
 
 const (
