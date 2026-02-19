@@ -133,6 +133,10 @@ func buildHTMLMessage(hostname string, results []*checker.CheckResult) string {
 			section += fmt.Sprintf("\n\u23f3 %d phased update(s) cannot be installed via regular upgrade. Use:\n<code>%s</code>", count, html.EscapeString(cmd))
 		}
 
+		for _, note := range r.Notes {
+			section += fmt.Sprintf("\n\u23f3 %s", html.EscapeString(note))
+		}
+
 		parts = append(parts, section)
 	}
 

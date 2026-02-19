@@ -62,6 +62,10 @@ func printCheckerResult(r *checker.CheckResult) {
 		}
 	}
 
+	for _, note := range r.Notes {
+		fmt.Printf("\n  \u23f3 %s\n", note)
+	}
+
 	if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
 		fmt.Printf("\n  \U0001f4a1 Update: %s\n", cmd)
 	} else if len(r.Updates) > 0 && r.Updates[0].Source != "" {

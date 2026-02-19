@@ -42,6 +42,10 @@ func BuildPlainTextMessage(hostname string, results []*checker.CheckResult) stri
 			parts = append(parts, fmt.Sprintf("  -> %d phased update(s) cannot be installed via regular upgrade. Use: %s", count, cmd))
 		}
 
+		for _, note := range r.Notes {
+			parts = append(parts, fmt.Sprintf("  -> %s", note))
+		}
+
 		parts = append(parts, "")
 	}
 

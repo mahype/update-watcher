@@ -9,7 +9,7 @@ watchers:
     options:
       use_sudo: true
       security_only: false
-      hide_phased: false  # Hide phased updates that cannot be installed yet
+      hide_phased: true  # Hide phased updates that cannot be installed yet
 
   - type: macos
     enabled: false

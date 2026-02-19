@@ -81,6 +81,10 @@ func BuildEmbeds(hostname string, results []*checker.CheckResult) []Embed {
 			value += fmt.Sprintf("\n\u23f3 %d phased update(s) cannot be installed via regular upgrade. Use:\n`%s`", count, cmd)
 		}
 
+		for _, note := range r.Notes {
+			value += fmt.Sprintf("\n\u23f3 %s", note)
+		}
+
 		// Discord field value limit is 1024 chars
 		if len(value) > 1024 {
 			value = value[:1020] + "..."

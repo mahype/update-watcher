@@ -25,17 +25,6 @@ var setupCmd = &cobra.Command{
 
 		// Run the menu-driven wizard
 		cfg, err = wizard.Run(cfg)
-		if wizard.IsTestRunRequested(err) {
-			// Save first, then run test
-			cfgPath := config.ConfigPath()
-			if saveErr := config.Save(cfg, cfgPath); saveErr != nil {
-				return fmt.Errorf("failed to save config: %w", saveErr)
-			}
-			fmt.Printf("\nConfiguration saved to %s\n", cfgPath)
-			fmt.Println("\nRunning test check...")
-			rootCmd.SetArgs([]string{"run"})
-			return rootCmd.Execute()
-		}
 		if err != nil {
 			return err
 		}

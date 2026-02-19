@@ -27,7 +27,7 @@ func NewFromConfig(cfg config.WatcherConfig) (checker.Checker, error) {
 	return &AptChecker{
 		useSudo:      cfg.GetBool("use_sudo", true),
 		securityOnly: cfg.GetBool("security_only", false),
-		hidePhased:   cfg.GetBool("hide_phased", false),
+		hidePhased:   cfg.GetBool("hide_phased", true),
 	}, nil
 }
 
@@ -77,13 +77,20 @@ func (a *AptChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 
 	// Filter out phased updates if configured.
 	if a.hidePhased {
+		var phasedCount int
 		filtered := result.Updates[:0]
 		for _, u := range result.Updates {
 			if u.Phasing == "" {
 				filtered = append(filtered, u)
+			} else {
+				phasedCount++
 			}
 		}
 		result.Updates = filtered
+		if phasedCount > 0 {
+			result.Notes = append(result.Notes,
+				fmt.Sprintf("%d phased update(s) hidden", phasedCount))
+		}
 	}
 
 	result.Summary = checker.BuildSummary(result.Updates, "packages")

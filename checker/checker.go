@@ -23,6 +23,7 @@ type CheckResult struct {
 	Summary     string    `json:"summary"`
 	CheckedAt   time.Time `json:"checked_at"`
 	Error       string    `json:"error,omitempty"`
+	Notes       []string  `json:"notes,omitempty"`
 }
 
 // HasUpdates returns true if this result contains at least one update.

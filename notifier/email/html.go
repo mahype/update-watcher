@@ -78,6 +78,11 @@ func BuildHTMLMessage(hostname string, results []*checker.CheckResult) string {
 `, count, html.EscapeString(cmd)))
 		}
 
+		for _, note := range r.Notes {
+			b.WriteString(fmt.Sprintf(`  <p style="margin-top: 8px; font-size: 13px; color: #92400e; background: #fffbeb; padding: 8px 12px; border-radius: 4px;">⏳ %s</p>
+`, html.EscapeString(note)))
+		}
+
 		b.WriteString("</div>\n")
 	}
 

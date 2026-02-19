@@ -18,6 +18,8 @@ import (
 	"github.com/mahype/update-watcher/cron"
 	"github.com/mahype/update-watcher/internal/hostname"
 	"github.com/mahype/update-watcher/notifier"
+	"github.com/mahype/update-watcher/output"
+	"github.com/mahype/update-watcher/runner"
 )
 
 // isToolAvailable checks if a command-line tool is on the system PATH.
@@ -146,6 +148,28 @@ func sendTestNotification(cfg *config.Config) {
 	fmt.Println()
 }
 
+func runTestCheck(cfg *config.Config) {
+	// Save config before running so checkers use the current state.
+	cfgPath := config.ConfigPath()
+	if err := config.Save(cfg, cfgPath); err != nil {
+		fmt.Printf("  [!] Failed to save config: %s\n", err)
+		return
+	}
+
+	fmt.Println("\n  Running test check (dry-run, no notifications)...")
+	fmt.Println()
+
+	r := runner.New(cfg, runner.WithDryRun(true))
+	result, err := r.Run()
+	if err != nil {
+		fmt.Printf("  [!] Test check failed: %s\n", err)
+		return
+	}
+
+	output.PrintResults(result.Results, result.Errors)
+	fmt.Println()
+}
+
 const (
 	menuWatchers      = "watchers"
 	menuNotifications = "notifications"
@@ -201,7 +225,7 @@ func Run(cfg *config.Config) (*config.Config, error) {
 				return cfg, err
 			}
 		case menuTestRun:
-			return cfg, errTestRun
+			runTestCheck(cfg)
 		case menuTestNotification:
 			sendTestNotification(cfg)
 		case menuSaveExit:
@@ -542,7 +566,7 @@ func manageWatchers(cfg *config.Config) error {
 func addAptWatcher(cfg *config.Config) {
 	securityOnly := false
 	useSudo := true
-	hidePhased := false
+	hidePhased := true
 
 	// Pre-fill from existing
 	for _, w := range cfg.Watchers {

@@ -97,6 +97,16 @@ func BuildAdaptiveCard(hostname string, results []*checker.CheckResult) map[stri
 			})
 		}
 
+		for _, note := range r.Notes {
+			items = append(items, map[string]interface{}{
+				"type":    "TextBlock",
+				"text":    fmt.Sprintf("\u23f3 %s", note),
+				"wrap":    true,
+				"color":   "Warning",
+				"spacing": "Small",
+			})
+		}
+
 		bodyElements = append(bodyElements, map[string]interface{}{
 			"type":      "Container",
 			"separator": true,
