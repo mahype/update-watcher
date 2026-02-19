@@ -617,7 +617,7 @@ settings:
 | `wordpress` | `check_themes` | `true` | Check theme updates |
 | `webproject` | `projects` | `[]` | List of project objects (name, path, environment, managers, run_as) |
 | `webproject` | `check_audit` | `true` | Run security audits (npm audit, composer audit, etc.) |
-| `distro` | `lts_only` | `true` | Only report LTS upgrades (Ubuntu only) |
+| `distro` | `lts_only` | `true` | Ubuntu: skip short-lived releases, only report next LTS upgrade |
 | `openclaw` | `channel` | `""` | Update channel (stable, beta, dev) |
 
 ### Notifier Options

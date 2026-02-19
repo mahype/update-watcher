@@ -8,7 +8,7 @@ import (
 func init() {
 	addWatchCommand("distro", "Add distribution release upgrade watcher", "Distro Release",
 		func(cmd *cobra.Command) {
-			cmd.Flags().Bool("lts-only", true, "only report LTS upgrades (Ubuntu only)")
+			cmd.Flags().Bool("lts-only", true, "Ubuntu: skip short-lived releases, only report LTS upgrades (e.g. 22.04 → 24.04)")
 		},
 		func(cmd *cobra.Command) (config.WatcherConfig, error) {
 			ltsOnly, _ := cmd.Flags().GetBool("lts-only")

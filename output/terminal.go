@@ -48,6 +48,8 @@ func printCheckerResult(r *checker.CheckResult) {
 			marker := " "
 			if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
 				marker = "!"
+			} else if u.Phasing != "" {
+				marker = "~"
 			}
 			suffix := ""
 			if u.Type == checker.UpdateTypeSecurity {

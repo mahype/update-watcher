@@ -64,3 +64,25 @@ func parseUpgradable(output string, securityOnly bool) []checker.Update {
 
 	return updates
 }
+
+// deferredRe matches the "deferred due to phasing" line from apt-get -s upgrade output.
+var deferredRe = regexp.MustCompile(
+	`The following upgrades have been deferred due to phasing:\s*\n((?:\s+\S.*\n?)*)`,
+)
+
+// parseDeferredPackages extracts package names from "apt-get -s upgrade" output
+// that are deferred due to phasing. Returns a set of package names.
+func parseDeferredPackages(output string) map[string]bool {
+	deferred := make(map[string]bool)
+
+	match := deferredRe.FindStringSubmatch(output)
+	if match == nil {
+		return deferred
+	}
+
+	for _, name := range strings.Fields(match[1]) {
+		deferred[name] = true
+	}
+
+	return deferred
+}

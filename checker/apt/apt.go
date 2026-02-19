@@ -19,6 +19,7 @@ func init() {
 type AptChecker struct {
 	useSudo      bool
 	securityOnly bool
+	hidePhased   bool
 }
 
 // NewFromConfig creates an AptChecker from a watcher configuration.
@@ -26,6 +27,7 @@ func NewFromConfig(cfg config.WatcherConfig) (checker.Checker, error) {
 	return &AptChecker{
 		useSudo:      cfg.GetBool("use_sudo", true),
 		securityOnly: cfg.GetBool("security_only", false),
+		hidePhased:   cfg.GetBool("hide_phased", false),
 	}, nil
 }
 
@@ -56,6 +58,33 @@ func (a *AptChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 	}
 
 	result.Updates = parseUpgradable(listResult.Stdout, a.securityOnly)
+
+	// Detect phased updates via dry-run simulation.
+	// apt list --upgradable does not always show the [phased X%] marker,
+	// but apt-get -s upgrade reliably reports "deferred due to phasing".
+	slog.Info("detecting phased updates via dry-run")
+	simResult, err := executil.Run("apt-get", "-s", "upgrade")
+	if err != nil {
+		slog.Warn("apt-get -s upgrade failed, skipping phased detection", "error", err)
+	} else {
+		deferred := parseDeferredPackages(simResult.Stdout)
+		for i := range result.Updates {
+			if result.Updates[i].Phasing == "" && deferred[result.Updates[i].Name] {
+				result.Updates[i].Phasing = "deferred"
+			}
+		}
+	}
+
+	// Filter out phased updates if configured.
+	if a.hidePhased {
+		filtered := result.Updates[:0]
+		for _, u := range result.Updates {
+			if u.Phasing == "" {
+				filtered = append(filtered, u)
+			}
+		}
+		result.Updates = filtered
+	}
 
 	result.Summary = checker.BuildSummary(result.Updates, "packages")
 

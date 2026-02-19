@@ -379,7 +379,8 @@ func manageWatchers(cfg *config.Config) error {
 			switch w.Type {
 			case "apt":
 				secOnly := w.GetBool("security_only", false)
-				fmt.Printf("    [✓] APT (%s, security_only: %v)\n", status, secOnly)
+				hidePhased := w.GetBool("hide_phased", false)
+				fmt.Printf("    [✓] APT (%s, security_only: %v, hide_phased: %v)\n", status, secOnly, hidePhased)
 			case "dnf":
 				secOnly := w.GetBool("security_only", false)
 				fmt.Printf("    [✓] DNF (%s, security_only: %v)\n", status, secOnly)
@@ -541,12 +542,14 @@ func manageWatchers(cfg *config.Config) error {
 func addAptWatcher(cfg *config.Config) {
 	securityOnly := false
 	useSudo := true
+	hidePhased := false
 
 	// Pre-fill from existing
 	for _, w := range cfg.Watchers {
 		if w.Type == "apt" {
 			securityOnly = w.GetBool("security_only", false)
 			useSudo = w.GetBool("use_sudo", true)
+			hidePhased = w.GetBool("hide_phased", false)
 			break
 		}
 	}
@@ -560,6 +563,10 @@ func addAptWatcher(cfg *config.Config) {
 				Title("Use sudo for apt operations?").
 				Description(sudoDescription("apt-get update")).
 				Value(&useSudo),
+			huh.NewConfirm().
+				Title("Hide phased updates?").
+				Description("Phased updates are gradually rolled out by Ubuntu and cannot be installed immediately. Hide them to reduce noise.").
+				Value(&hidePhased),
 		),
 	).Run()
 
@@ -569,6 +576,7 @@ func addAptWatcher(cfg *config.Config) {
 		Options: map[string]interface{}{
 			"security_only": securityOnly,
 			"use_sudo":      useSudo,
+			"hide_phased":   hidePhased,
 		},
 	})
 	fmt.Println("  APT watcher configured.")
@@ -834,8 +842,8 @@ func addDistroWatcher(cfg *config.Config) {
 	huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
-				Title("Only report LTS upgrades? (Ubuntu only)").
-				Description("When enabled, only LTS-to-LTS upgrades are reported on Ubuntu systems. Ignored on other distributions.").
+				Title("Only report LTS upgrades?").
+				Description("Ubuntu only: Skip short-lived releases (e.g. 23.10) and only report upgrades to the next Long Term Support version (e.g. 22.04 → 24.04). Has no effect on Debian or Fedora.").
 				Value(&ltsOnly),
 		),
 	).Run()

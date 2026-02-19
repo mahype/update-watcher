@@ -3,6 +3,7 @@ package checker
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -94,13 +95,25 @@ func BuildSummary(updates []Update, unit string) string {
 		return fmt.Sprintf("all %s are up to date", unit)
 	}
 	sec := 0
+	phased := 0
 	for _, u := range updates {
 		if u.Type == UpdateTypeSecurity {
 			sec++
 		}
+		if u.Phasing != "" {
+			phased++
+		}
+	}
+
+	var details []string
+	if phased > 0 {
+		details = append(details, fmt.Sprintf("%d phased", phased))
 	}
 	if sec > 0 {
-		return fmt.Sprintf("%d %s (%d security)", total, unit, sec)
+		details = append(details, fmt.Sprintf("%d security", sec))
+	}
+	if len(details) > 0 {
+		return fmt.Sprintf("%d %s (%s)", total, unit, strings.Join(details, ", "))
 	}
 	return fmt.Sprintf("%d %s", total, unit)
 }

@@ -212,10 +212,16 @@ func PriorityIndicator(u checker.Update, useEmoji bool) string {
 		if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
 			return "[!]"
 		}
+		if u.Phasing != "" {
+			return "[~]"
+		}
 		return "[-]"
 	}
 	if u.Type == checker.UpdateTypeSecurity || u.Priority == checker.PriorityCritical {
 		return "\U0001f534" // 🔴
+	}
+	if u.Phasing != "" {
+		return "\U0001f7e1" // 🟡
 	}
 	return "\u26aa" // ⚪
 }
