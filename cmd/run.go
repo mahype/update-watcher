@@ -21,13 +21,18 @@ var runCmd = &cobra.Command{
 			return fmt.Errorf("failed to load config: %w", err)
 		}
 
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		only, _ := cmd.Flags().GetString("only")
 		format, _ := cmd.Flags().GetString("format")
 		quiet, _ := cmd.Flags().GetBool("quiet")
 
+		var notifyOpt *bool
+		if cmd.Flags().Changed("notify") {
+			v, _ := cmd.Flags().GetBool("notify")
+			notifyOpt = &v
+		}
+
 		r := runner.New(cfg,
-			runner.WithDryRun(dryRun),
+			runner.WithNotify(notifyOpt),
 			runner.WithOnly(only),
 		)
 
@@ -63,9 +68,8 @@ var runCmd = &cobra.Command{
 }
 
 func init() {
-	runCmd.Flags().BoolP("dry-run", "n", false, "run checks but skip notifications")
 	runCmd.Flags().StringP("format", "f", "text", "output format: text, json")
 	runCmd.Flags().String("only", "", "run only a specific checker: apt, docker, wordpress")
-	runCmd.Flags().Bool("notify", true, "enable/disable notifications")
+	runCmd.Flags().Bool("notify", false, "override send_policy: --notify=true always sends, --notify=false never sends")
 	rootCmd.AddCommand(runCmd)
 }

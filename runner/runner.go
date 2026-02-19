@@ -58,17 +58,18 @@ type RunResult struct {
 
 // Runner orchestrates checker execution and notification dispatch.
 type Runner struct {
-	cfg    *config.Config
-	dryRun bool
-	only   string
+	cfg       *config.Config
+	notifyOpt *bool // nil = use send_policy, true = always send, false = never send
+	only      string
 }
 
 // Option configures the runner.
 type Option func(*Runner)
 
-// WithDryRun disables notifications.
-func WithDryRun(dryRun bool) Option {
-	return func(r *Runner) { r.dryRun = dryRun }
+// WithNotify overrides the send_policy from the config.
+// nil = use send_policy (default), true = always send, false = never send.
+func WithNotify(notify *bool) Option {
+	return func(r *Runner) { r.notifyOpt = notify }
 }
 
 // WithOnly restricts the run to a single checker type.
@@ -163,22 +164,27 @@ func (r *Runner) Run() (*RunResult, error) {
 	}
 
 	// Notify
-	if !r.dryRun {
-		if err := r.notify(ctx, result); err != nil {
-			result.Errors = append(result.Errors, err)
-		}
-	} else {
-		slog.Info("dry run mode, skipping notifications")
+	if err := r.notify(ctx, result); err != nil {
+		result.Errors = append(result.Errors, err)
 	}
 
 	return result, nil
 }
 
 func (r *Runner) notify(ctx context.Context, result *RunResult) error {
-	policy := r.cfg.Settings.SendPolicy
-	if policy == "only-on-updates" && result.TotalUpdates == 0 && len(result.Errors) == 0 {
-		slog.Info("no updates found, skipping notification (send_policy: only-on-updates)")
-		return nil
+	if r.notifyOpt != nil {
+		if !*r.notifyOpt {
+			slog.Info("notifications disabled via --notify=false")
+			return nil
+		}
+		slog.Info("notifications forced via --notify=true")
+	} else {
+		// No explicit override — use send_policy from config.
+		policy := r.cfg.Settings.SendPolicy
+		if policy == "only-on-updates" && result.TotalUpdates == 0 && len(result.Errors) == 0 {
+			slog.Info("no updates found, skipping notification (send_policy: only-on-updates)")
+			return nil
+		}
 	}
 
 	var notifyErrors []error

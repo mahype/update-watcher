@@ -156,10 +156,11 @@ func runTestCheck(cfg *config.Config) {
 		return
 	}
 
-	fmt.Println("\n  Running test check (dry-run, no notifications)...")
+	fmt.Println("\n  Running test check (no notifications)...")
 	fmt.Println()
 
-	r := runner.New(cfg, runner.WithDryRun(true))
+	noNotify := false
+	r := runner.New(cfg, runner.WithNotify(&noNotify))
 	result, err := r.Run()
 	if err != nil {
 		fmt.Printf("  [!] Test check failed: %s\n", err)
