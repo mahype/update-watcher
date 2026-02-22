@@ -95,25 +95,44 @@ func Validate(cfg *Config) error {
 	}
 
 	validNotifiers := map[string]bool{
-		"slack":      true,
-		"ntfy":       true,
-		"webhook":    true,
-		"discord":    true,
-		"telegram":   true,
-		"teams":      true,
-		"email":      true,
-		"pushover":   true,
-		"gotify":     true,
-		"googlechat": true,
-		"matrix":     true,
-		"mattermost": true,
-		"rocketchat": true,
-		"pagerduty":  true,
-		"pushbullet": true,
+		"slack":          true,
+		"ntfy":           true,
+		"webhook":        true,
+		"discord":        true,
+		"telegram":       true,
+		"teams":          true,
+		"email":          true,
+		"pushover":       true,
+		"gotify":         true,
+		"googlechat":     true,
+		"matrix":         true,
+		"mattermost":     true,
+		"rocketchat":     true,
+		"pagerduty":      true,
+		"pushbullet":     true,
+		"homeassistant":  true,
+	}
+
+	validPriorities := map[string]bool{
+		"critical": true,
+		"high":     true,
+		"normal":   true,
+		"low":      true,
+	}
+
+	validSendPolicies := map[string]bool{
+		"always":          true,
+		"only-on-updates": true,
 	}
 	for i, n := range cfg.Notifiers {
 		if !validNotifiers[n.Type] {
 			ve.add(fmt.Sprintf("notifier[%d]: unknown type %q", i, n.Type))
+		}
+		if n.SendPolicy != "" && !validSendPolicies[n.SendPolicy] {
+			ve.add(fmt.Sprintf("notifier[%d] (%s): invalid send_policy %q (must be \"always\" or \"only-on-updates\")", i, n.Type, n.SendPolicy))
+		}
+		if n.MinPriority != "" && !validPriorities[n.MinPriority] {
+			ve.add(fmt.Sprintf("notifier[%d] (%s): invalid min_priority %q (must be \"critical\", \"high\", \"normal\", or \"low\")", i, n.Type, n.MinPriority))
 		}
 
 		if !n.Enabled {
@@ -204,6 +223,10 @@ func Validate(cfg *Config) error {
 	policy := cfg.Settings.SendPolicy
 	if policy != "always" && policy != "only-on-updates" {
 		ve.add(fmt.Sprintf("settings.send_policy: invalid value %q (must be \"always\" or \"only-on-updates\")", policy))
+	}
+
+	if cfg.Settings.MinPriority != "" && !validPriorities[cfg.Settings.MinPriority] {
+		ve.add(fmt.Sprintf("settings.min_priority: invalid value %q (must be \"critical\", \"high\", \"normal\", or \"low\")", cfg.Settings.MinPriority))
 	}
 
 	if ve.hasErrors() {
