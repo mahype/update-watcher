@@ -30,7 +30,7 @@ Update-Watcher sends server update notifications to all your devices through [Pu
 Store the token in an environment variable:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_PUSHBULLET_TOKEN="o.aBcDeFgHiJkLmNoPqRsTuVwXyZ012345"
+export UPDATE_WATCHER_PUSHBULLET_TOKEN="<your-pushbullet-access-token>"
 ```
 
 ### Step 4: Optional Device Targeting

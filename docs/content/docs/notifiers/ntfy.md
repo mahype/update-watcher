@@ -66,7 +66,7 @@ Store the access token in an environment variable rather than placing it directl
 {{< /callout >}}
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_NTFY_TOKEN="tk_your_access_token_here"
+export UPDATE_WATCHER_NTFY_TOKEN="<your-ntfy-access-token>"
 ```
 
 ```yaml {filename="config.yaml"}

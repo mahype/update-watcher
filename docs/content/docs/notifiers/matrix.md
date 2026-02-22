@@ -49,8 +49,8 @@ The response JSON contains the `access_token` field.
 Store the credentials in environment variables:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_MATRIX_TOKEN="syt_dXBkYXRlLXdhdGNoZXI_ABCdefGHIjkl_1a2B3c"
-export UPDATE_WATCHER_MATRIX_ROOM_ID="!abcdef123456:your-homeserver.org"
+export UPDATE_WATCHER_MATRIX_TOKEN="<your-matrix-access-token>"
+export UPDATE_WATCHER_MATRIX_ROOM_ID="<your-matrix-room-id>"
 ```
 
 {{% /steps %}}

@@ -43,7 +43,7 @@ Store the webhook URL in an environment variable rather than placing it directly
 {{< /callout >}}
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_DISCORD_WEBHOOK="https://discord.com/api/webhooks/1234567890/abcdefghijklmnop"
+export UPDATE_WATCHER_DISCORD_WEBHOOK="<your-discord-webhook-url>"
 ```
 
 ### Finding a Role ID for Mentions

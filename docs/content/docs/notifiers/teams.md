@@ -43,7 +43,7 @@ Store the webhook URL in an environment variable rather than placing it directly
 {{< /callout >}}
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_TEAMS_WEBHOOK="https://prod-XX.westus.logic.azure.com:443/workflows/..."
+export UPDATE_WATCHER_TEAMS_WEBHOOK="<your-teams-webhook-url>"
 ```
 
 {{< callout type="warning" >}}

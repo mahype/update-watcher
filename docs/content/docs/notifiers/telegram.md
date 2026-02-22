@@ -37,8 +37,8 @@ For a **group chat**:
 Store the credentials in environment variables:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_TELEGRAM_TOKEN="123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
-export UPDATE_WATCHER_TELEGRAM_CHAT_ID="-1001234567890"
+export UPDATE_WATCHER_TELEGRAM_TOKEN="<your-telegram-bot-token>"
+export UPDATE_WATCHER_TELEGRAM_CHAT_ID="<your-telegram-chat-id>"
 ```
 
 {{% /steps %}}

@@ -28,8 +28,8 @@ Update-Watcher sends push notifications to your iOS, Android, and Desktop device
 Store the credentials in environment variables:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_PUSHOVER_APP_TOKEN="azGDORePK8gMa2PQRrZzKp2jFGNPel"
-export UPDATE_WATCHER_PUSHOVER_USER_KEY="uQiRzpo4DXghDmr9QzzfQu27cmVRsG"
+export UPDATE_WATCHER_PUSHOVER_APP_TOKEN="<your-pushover-app-token>"
+export UPDATE_WATCHER_PUSHOVER_USER_KEY="<your-pushover-user-key>"
 ```
 
 {{% /steps %}}

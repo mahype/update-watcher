@@ -35,7 +35,7 @@ An administrator must enable incoming webhooks on the Rocket.Chat instance:
 Store the webhook URL in an environment variable:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_ROCKETCHAT_WEBHOOK="https://rocketchat.example.com/hooks/xxxxxxxxxxxxxxxxxxxxxxxx/yyyyyyyyyyyyyyyyyyyyyyyy"
+export UPDATE_WATCHER_ROCKETCHAT_WEBHOOK="<your-rocketchat-webhook-url>"
 ```
 
 {{% /steps %}}

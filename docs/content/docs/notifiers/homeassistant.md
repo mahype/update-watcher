@@ -24,7 +24,7 @@ Update-Watcher sends server update notifications to [Home Assistant](https://www
 Store the token in an environment variable:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_HA_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+export UPDATE_WATCHER_HA_TOKEN="<your-home-assistant-long-lived-access-token>"
 ```
 
 ### Step 3: Verify the Notify Service

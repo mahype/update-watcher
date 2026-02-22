@@ -35,7 +35,7 @@ Incoming webhooks must be enabled by a system administrator:
 Store the webhook URL in an environment variable:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_MATTERMOST_WEBHOOK="https://mattermost.example.com/hooks/xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+export UPDATE_WATCHER_MATTERMOST_WEBHOOK="<your-mattermost-webhook-url>"
 ```
 
 {{% /steps %}}

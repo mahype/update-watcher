@@ -33,7 +33,7 @@ Store the webhook URL in an environment variable rather than placing it directly
 {{< /callout >}}
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_GCHAT_WEBHOOK="https://chat.googleapis.com/v1/spaces/SPACE_ID/messages?key=KEY&token=TOKEN"
+export UPDATE_WATCHER_GCHAT_WEBHOOK="<your-google-chat-webhook-url>"
 ```
 
 ## Configuration Options

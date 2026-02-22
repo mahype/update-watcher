@@ -44,7 +44,7 @@ Install the Gotify client on your devices to receive push notifications:
 Store the credentials in an environment variable:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_GOTIFY_TOKEN="AKjf8_xQrT7pNZ"
+export UPDATE_WATCHER_GOTIFY_TOKEN="<your-gotify-app-token>"
 ```
 
 {{% /steps %}}

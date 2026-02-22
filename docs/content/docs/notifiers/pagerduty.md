@@ -28,7 +28,7 @@ Update-Watcher integrates with [PagerDuty](https://www.pagerduty.com) through th
 Store the routing key in an environment variable:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_PAGERDUTY_KEY="a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6"
+export UPDATE_WATCHER_PAGERDUTY_KEY="<your-pagerduty-routing-key>"
 ```
 
 {{% /steps %}}

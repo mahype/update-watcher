@@ -39,8 +39,8 @@ Copy the 16-character app password.
 Store the credentials in environment variables:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_SMTP_USER="alerts@example.com"
-export UPDATE_WATCHER_SMTP_PASS="xxxx-xxxx-xxxx-xxxx"
+export UPDATE_WATCHER_SMTP_USER="<your-smtp-username>"
+export UPDATE_WATCHER_SMTP_PASS="<your-smtp-password>"
 ```
 
 ```yaml {filename="config.yaml"}
@@ -72,8 +72,8 @@ Obtain the SMTP host, port, username, and password from your email provider or m
 Store the credentials in environment variables:
 
 ```bash {filename="Terminal"}
-export UPDATE_WATCHER_SMTP_USER="alerts@example.com"
-export UPDATE_WATCHER_SMTP_PASS="your-smtp-password"
+export UPDATE_WATCHER_SMTP_USER="<your-smtp-username>"
+export UPDATE_WATCHER_SMTP_PASS="<your-smtp-password>"
 ```
 
 {{% /steps %}}

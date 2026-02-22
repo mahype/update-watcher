@@ -78,13 +78,13 @@ Create a `.env` file (for example, at `/etc/update-watcher/.env` on a server or 
 # /etc/update-watcher/.env
 # Notification service credentials
 SLACK_WEBHOOK_URL=<your-slack-webhook-url>
-TELEGRAM_BOT_TOKEN=123456789:AABBCCDDEEFFGGHHIIJJKKLLMMNNOOPPqqr
-TELEGRAM_CHAT_ID=-1001234567890
-SMTP_PASSWORD=my-app-specific-password
+TELEGRAM_BOT_TOKEN=<your-telegram-bot-token>
+TELEGRAM_CHAT_ID=<your-telegram-chat-id>
+SMTP_PASSWORD=<your-smtp-password>
 
 # Pushover
-PUSHOVER_APP_TOKEN=azGDORePK8gMaC0QOYAMyEEuzJnyUi
-PUSHOVER_USER_KEY=uQiRzpo4DXghDmr9QzzfQu27cmVRsG
+PUSHOVER_APP_TOKEN=<your-pushover-app-token>
+PUSHOVER_USER_KEY=<your-pushover-user-key>
 ```
 
 Load the `.env` file before running Update-Watcher:
