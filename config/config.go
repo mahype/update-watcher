@@ -123,9 +123,11 @@ type WatcherConfig struct {
 
 // NotifierConfig represents a single notifier entry.
 type NotifierConfig struct {
-	Type    string     `yaml:"type" mapstructure:"type"`
-	Enabled bool       `yaml:"enabled" mapstructure:"enabled"`
-	Options OptionsMap `yaml:"options,omitempty" mapstructure:"options"`
+	Type        string     `yaml:"type" mapstructure:"type"`
+	Enabled     bool       `yaml:"enabled" mapstructure:"enabled"`
+	SendPolicy  string     `yaml:"send_policy,omitempty" mapstructure:"send_policy"`
+	MinPriority string     `yaml:"min_priority,omitempty" mapstructure:"min_priority"`
+	Options     OptionsMap `yaml:"options,omitempty" mapstructure:"options"`
 }
 
 // CronJobType identifies the kind of cron job.
@@ -144,11 +146,12 @@ type CronJob struct {
 
 // GlobalSettings holds cross-cutting settings.
 type GlobalSettings struct {
-	SendPolicy string    `yaml:"send_policy" mapstructure:"send_policy"`
-	LogFile    string    `yaml:"log_file,omitempty" mapstructure:"log_file"`
-	Schedule   string    `yaml:"schedule,omitempty" mapstructure:"schedule"` // Deprecated: use CronJobs
-	CronJobs   []CronJob `yaml:"cron_jobs,omitempty" mapstructure:"cron_jobs"`
-	Quiet      bool      `yaml:"quiet,omitempty" mapstructure:"quiet"`
+	SendPolicy  string    `yaml:"send_policy" mapstructure:"send_policy"`
+	MinPriority string    `yaml:"min_priority,omitempty" mapstructure:"min_priority"`
+	LogFile     string    `yaml:"log_file,omitempty" mapstructure:"log_file"`
+	Schedule    string    `yaml:"schedule,omitempty" mapstructure:"schedule"` // Deprecated: use CronJobs
+	CronJobs    []CronJob `yaml:"cron_jobs,omitempty" mapstructure:"cron_jobs"`
+	Quiet       bool      `yaml:"quiet,omitempty" mapstructure:"quiet"`
 }
 
 // GetBool delegates to Options.GetBool for backward compatibility.
