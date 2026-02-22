@@ -13,6 +13,9 @@ func PrintStatus(cfg *config.Config, cronJobs []cron.InstalledJob) {
 	fmt.Printf("  Hostname:    %s\n", cfg.Hostname)
 	fmt.Printf("  Config:      %s\n", config.ConfigPath())
 	fmt.Printf("  Send Policy: %s\n", cfg.Settings.SendPolicy)
+	if cfg.Settings.MinPriority != "" {
+		fmt.Printf("  Min Priority: %s\n", cfg.Settings.MinPriority)
+	}
 
 	if len(cronJobs) == 0 {
 		fmt.Printf("  Cron:        not installed\n")
@@ -60,7 +63,14 @@ func PrintStatus(cfg *config.Config, cronJobs []cron.InstalledJob) {
 		if !n.Enabled {
 			status = "disabled"
 		}
-		fmt.Printf("    - %-12s %s\n", n.Type, status)
+		detail := ""
+		if n.SendPolicy != "" {
+			detail += fmt.Sprintf(", policy: %s", n.SendPolicy)
+		}
+		if n.MinPriority != "" {
+			detail += fmt.Sprintf(", min: %s+", n.MinPriority)
+		}
+		fmt.Printf("    - %-12s %s%s\n", n.Type, status, detail)
 	}
 
 	fmt.Println()
