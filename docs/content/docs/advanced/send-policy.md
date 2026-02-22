@@ -83,9 +83,65 @@ When `--notify` is omitted, the configured `send_policy` applies:
 update-watcher run
 ```
 
+## Per-Notifier Send Policy
+
+Each notifier can override the global `send_policy`. If a notifier does not specify its own, the global setting applies.
+
+```yaml {filename="config.yaml"}
+settings:
+  send_policy: "only-on-updates"    # global default
+
+notifiers:
+  - type: slack
+    send_policy: "always"           # Slack always receives notifications
+    options:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+  - type: email
+    # no send_policy → uses global "only-on-updates"
+    options:
+      smtp_host: "smtp.example.com"
+      to: ["admin@example.com"]
+```
+
+## Priority Filtering
+
+The `min_priority` setting filters which updates are included in notifications. Updates below the minimum priority are excluded from that notifier's message.
+
+Priority levels from highest to lowest: `critical` > `high` > `normal` > `low`.
+
+```yaml {filename="config.yaml"}
+settings:
+  min_priority: "normal"            # global: skip low-priority updates
+
+notifiers:
+  - type: slack
+    min_priority: "low"             # Slack sees everything
+    options:
+      webhook_url: "${SLACK_WEBHOOK_URL}"
+  - type: email
+    min_priority: "high"            # email only for high + critical
+    options:
+      smtp_host: "smtp.example.com"
+      to: ["admin@example.com"]
+  - type: pagerduty
+    min_priority: "critical"        # PagerDuty only for critical
+    options:
+      routing_key: "${PAGERDUTY_ROUTING_KEY}"
+```
+
+{{< callout type="info" >}}
+If `min_priority` is not set (empty), no filtering is applied and all updates are included. Updates without an explicit priority are treated as `normal`.
+{{< /callout >}}
+
+### Priority Filtering and Send Policy Interaction
+
+After priority filtering, if no updates remain for a notifier, the `only-on-updates` policy treats it as "no updates" and skips the notification. With `always`, the notification is still sent (but the update list will be empty for that notifier).
+
+The `--notify=true` CLI flag overrides the send policy (forces send) but does **not** bypass priority filtering. This means you can force-send notifications while still respecting each notifier's content filter.
+
 ## Configuration Example
 
-A complete configuration with the send policy set:
+A complete configuration with per-notifier policies:
 
 ```yaml {filename="config.yaml"}
 hostname: "web-prod-01"
@@ -96,26 +152,23 @@ watchers:
 
 notifiers:
   - type: slack
+    send_policy: "always"
+    min_priority: "low"
     options:
       webhook_url: "${SLACK_WEBHOOK_URL}"
   - type: email
+    min_priority: "high"
     options:
       smtp_host: "smtp.example.com"
       smtp_port: 587
-      smtp_user: "${SMTP_USER}"
-      smtp_pass: "${SMTP_PASS}"
+      username: "${SMTP_USER}"
+      password: "${SMTP_PASS}"
       from: "updates@example.com"
-      to: "ops-team@example.com"
+      to: ["ops-team@example.com"]
 
 settings:
   send_policy: "only-on-updates"
-```
-
-To switch to "always," change the single line:
-
-```yaml {filename="config.yaml"}
-settings:
-  send_policy: "always"
+  min_priority: "normal"
 ```
 
 ## Decision Guide

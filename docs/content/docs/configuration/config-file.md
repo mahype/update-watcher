@@ -163,15 +163,25 @@ watchers:
 
 ## Notifier Configuration
 
-Each entry in the `notifiers` list follows the same structure as watchers:
+Each entry in the `notifiers` list has the following structure:
 
 ```yaml {filename="config.yaml"}
 notifiers:
   - type: <notifier-type>
     enabled: true
+    send_policy: ""                  # Optional: override global send_policy
+    min_priority: ""                 # Optional: minimum priority filter
     options:
       key: value
 ```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `type` | string | -- | Notifier identifier (required) |
+| `enabled` | bool | `true` | Whether this notifier is active |
+| `send_policy` | string | `""` | Per-notifier override: `"always"` or `"only-on-updates"`. Empty falls back to global `settings.send_policy`. |
+| `min_priority` | string | `""` | Minimum update priority: `"critical"`, `"high"`, `"normal"`, or `"low"`. Empty falls back to `settings.min_priority`; if that is also empty, no filtering. |
+| `options` | object | `{}` | Type-specific configuration (see notifier docs) |
 
 Multiple notifiers can be enabled simultaneously. All enabled notifiers receive every notification.
 
@@ -259,6 +269,7 @@ settings:
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `send_policy` | string | `"only-on-updates"` | `"only-on-updates"` skips notification when no updates are found. `"always"` sends a notification after every run. |
+| `min_priority` | string | `""` | Global minimum priority filter. Only updates at or above this level (`critical`, `high`, `normal`, `low`) are included. Empty means no filtering. Per-notifier settings override this. |
 | `log_file` | string | `""` | Path to a log file. Leave empty to disable file logging. |
 | `schedule` | string | `"0 7 * * *"` | Cron expression used by `install-cron`. Does not affect `run` directly. |
 

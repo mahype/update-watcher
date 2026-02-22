@@ -61,6 +61,8 @@ notifiers:
   # Secrets: webhook_url
   - type: slack
     enabled: false
+    # send_policy: "always"          # Per-notifier override (default: use global)
+    # min_priority: "low"            # Minimum priority filter (default: use global)
     options:
       webhook_url: "${SLACK_WEBHOOK_URL}"
       mention_on_security: "@channel"
@@ -89,6 +91,8 @@ notifiers:
   # Secrets: username, password
   - type: email
     enabled: false
+    # send_policy: "only-on-updates"
+    # min_priority: "high"           # Only high + critical updates via email
     options:
       smtp_host: "smtp.example.com"
       smtp_port: 587
@@ -179,6 +183,7 @@ notifiers:
 
 settings:
   send_policy: "only-on-updates"
+  # min_priority: ""                 # Global minimum priority filter (critical/high/normal/low, empty = no filter)
   log_file: "/var/log/update-watcher.log"
   cron_jobs:
     - type: check
