@@ -455,6 +455,9 @@ func printStatus(cfg *config.Config) {
 	}
 
 	fmt.Printf("  Send policy:   %s\n", cfg.Settings.SendPolicy)
+	if cfg.Settings.MinPriority != "" {
+		fmt.Printf("  Min priority:  %s\n", cfg.Settings.MinPriority)
+	}
 	fmt.Println()
 }
 
@@ -1437,7 +1440,14 @@ func manageNotifications(cfg *config.Config) error {
 			if ok {
 				displayName = meta.DisplayName
 			}
-			fmt.Printf("    [✓] %s (%s)\n", displayName, status)
+			detail := status
+		if n.SendPolicy != "" {
+			detail += fmt.Sprintf(", policy: %s", n.SendPolicy)
+		}
+		if n.MinPriority != "" {
+			detail += fmt.Sprintf(", min: %s+", n.MinPriority)
+		}
+		fmt.Printf("    [✓] %s (%s)\n", displayName, detail)
 		}
 		fmt.Println()
 
@@ -1523,6 +1533,7 @@ func manageNotifications(cfg *config.Config) error {
 func manageSettings(cfg *config.Config) error {
 	hostnameVal := cfg.Hostname
 	sendPolicy := cfg.Settings.SendPolicy
+	minPriority := cfg.Settings.MinPriority
 
 	err := huh.NewForm(
 		huh.NewGroup(
@@ -1537,6 +1548,17 @@ func manageSettings(cfg *config.Config) error {
 					huh.NewOption("Always (even when no updates)", "always"),
 				).
 				Value(&sendPolicy),
+			huh.NewSelect[string]().
+				Title("Minimum priority (global)").
+				Description("Only send updates at or above this priority. Per-notifier settings override this.").
+				Options(
+					huh.NewOption("No filter (all updates)", ""),
+					huh.NewOption("Low and above", "low"),
+					huh.NewOption("Normal and above", "normal"),
+					huh.NewOption("High and above", "high"),
+					huh.NewOption("Critical only", "critical"),
+				).
+				Value(&minPriority),
 		),
 	).Run()
 	if err != nil {
@@ -1545,6 +1567,7 @@ func manageSettings(cfg *config.Config) error {
 
 	cfg.Hostname = hostnameVal
 	cfg.Settings.SendPolicy = sendPolicy
+	cfg.Settings.MinPriority = minPriority
 	fmt.Println("  Settings updated.")
 	return nil
 }

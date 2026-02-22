@@ -48,6 +48,36 @@ var editFuncs = map[string]func(cfg *config.Config, existing *config.NotifierCon
 	"pushbullet":  editPushbullet,
 }
 
+// notifierPolicyForm shows send_policy and min_priority fields for a notifier.
+// Pass empty strings for defaults (= use global). Returns selected values.
+func notifierPolicyForm(sendPolicy, minPriority string) (string, string, error) {
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Send policy").
+				Description("Override the global send policy for this notifier.").
+				Options(
+					huh.NewOption("Use global default", ""),
+					huh.NewOption("Only when updates are found", "only-on-updates"),
+					huh.NewOption("Always (even when no updates)", "always"),
+				).
+				Value(&sendPolicy),
+			huh.NewSelect[string]().
+				Title("Minimum priority").
+				Description("Only include updates at or above this priority.").
+				Options(
+					huh.NewOption("Use global default", ""),
+					huh.NewOption("Low and above (all updates)", "low"),
+					huh.NewOption("Normal and above", "normal"),
+					huh.NewOption("High and above", "high"),
+					huh.NewOption("Critical only", "critical"),
+				).
+				Value(&minPriority),
+		),
+	).Run()
+	return sendPolicy, minPriority, err
+}
+
 // --- Slack ---
 
 func addSlack(cfg *config.Config) error {
@@ -69,6 +99,11 @@ func addSlack(cfg *config.Config) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	options := map[string]interface{}{
 		"webhook_url": webhookURL,
 		"use_emoji":   true,
@@ -78,9 +113,11 @@ func addSlack(cfg *config.Config) error {
 	}
 
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "slack",
-		Enabled: true,
-		Options: options,
+		Type:        "slack",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Slack notifier added.")
@@ -106,12 +143,19 @@ func editSlack(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["webhook_url"] = webhookURL
 	if mentionOnSecurity {
 		existing.Options["mention_on_security"] = "@channel"
 	} else {
 		delete(existing.Options, "mention_on_security")
 	}
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Slack settings updated.")
 	return nil
@@ -143,6 +187,11 @@ func addNtfy(cfg *config.Config) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	options := map[string]interface{}{
 		"server_url": serverURL,
 		"topic":      topic,
@@ -153,9 +202,11 @@ func addNtfy(cfg *config.Config) error {
 	}
 
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "ntfy",
-		Enabled: true,
-		Options: options,
+		Type:        "ntfy",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  ntfy notifier added.")
@@ -185,6 +236,11 @@ func editNtfy(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["server_url"] = serverURL
 	existing.Options["topic"] = topic
 	if token != "" {
@@ -192,6 +248,8 @@ func editNtfy(cfg *config.Config, existing *config.NotifierConfig) error {
 	} else {
 		delete(existing.Options, "token")
 	}
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  ntfy settings updated.")
 	return nil
@@ -223,6 +281,11 @@ func addWebhook(cfg *config.Config) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	options := map[string]interface{}{
 		"url":          url,
 		"method":       method,
@@ -233,9 +296,11 @@ func addWebhook(cfg *config.Config) error {
 	}
 
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "webhook",
-		Enabled: true,
-		Options: options,
+		Type:        "webhook",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Webhook notifier added.")
@@ -265,6 +330,11 @@ func editWebhook(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["url"] = url
 	existing.Options["method"] = method
 	if authHeader != "" {
@@ -272,6 +342,8 @@ func editWebhook(cfg *config.Config, existing *config.NotifierConfig) error {
 	} else {
 		delete(existing.Options, "auth_header")
 	}
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Webhook settings updated.")
 	return nil
@@ -311,10 +383,17 @@ func addDiscord(cfg *config.Config) error {
 		options["mention_role"] = mentionRole
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "discord",
-		Enabled: true,
-		Options: options,
+		Type:        "discord",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Discord notifier added.")
@@ -344,6 +423,11 @@ func editDiscord(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["webhook_url"] = webhookURL
 	existing.Options["username"] = username
 	if mentionRole != "" {
@@ -351,6 +435,8 @@ func editDiscord(cfg *config.Config, existing *config.NotifierConfig) error {
 	} else {
 		delete(existing.Options, "mention_role")
 	}
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Discord settings updated.")
 	return nil
@@ -391,10 +477,17 @@ func addTelegram(cfg *config.Config) error {
 		options["disable_notification"] = true
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "telegram",
-		Enabled: true,
-		Options: options,
+		Type:        "telegram",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Telegram notifier added.")
@@ -423,6 +516,11 @@ func editTelegram(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["bot_token"] = botToken
 	existing.Options["chat_id"] = chatID
 	if disableNotification {
@@ -430,6 +528,8 @@ func editTelegram(cfg *config.Config, existing *config.NotifierConfig) error {
 	} else {
 		delete(existing.Options, "disable_notification")
 	}
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Telegram settings updated.")
 	return nil
@@ -456,10 +556,17 @@ func addTeams(cfg *config.Config) error {
 		"webhook_url": webhookURL,
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "teams",
-		Enabled: true,
-		Options: options,
+		Type:        "teams",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Microsoft Teams notifier added.")
@@ -480,7 +587,14 @@ func editTeams(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["webhook_url"] = webhookURL
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Microsoft Teams settings updated.")
 	return nil
@@ -556,10 +670,17 @@ func addEmail(cfg *config.Config) error {
 		"tls":       useTLS,
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "email",
-		Enabled: true,
-		Options: options,
+		Type:        "email",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  E-Mail notifier added.")
@@ -622,6 +743,11 @@ func editEmail(cfg *config.Config, existing *config.NotifierConfig) error {
 		}
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["smtp_host"] = smtpHost
 	existing.Options["smtp_port"] = port
 	existing.Options["username"] = username
@@ -629,6 +755,8 @@ func editEmail(cfg *config.Config, existing *config.NotifierConfig) error {
 	existing.Options["from"] = from
 	existing.Options["to"] = to
 	existing.Options["tls"] = useTLS
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  E-Mail settings updated.")
 	return nil
@@ -686,10 +814,17 @@ func addPushover(cfg *config.Config) error {
 		options["sound"] = sound
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "pushover",
-		Enabled: true,
-		Options: options,
+		Type:        "pushover",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Pushover notifier added.")
@@ -724,6 +859,11 @@ func editPushover(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["app_token"] = appToken
 	existing.Options["user_key"] = userKey
 	if device != "" {
@@ -736,6 +876,8 @@ func editPushover(cfg *config.Config, existing *config.NotifierConfig) error {
 	} else {
 		delete(existing.Options, "sound")
 	}
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Pushover settings updated.")
 	return nil
@@ -767,10 +909,17 @@ func addGotify(cfg *config.Config) error {
 		"token":      token,
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "gotify",
-		Enabled: true,
-		Options: options,
+		Type:        "gotify",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Gotify notifier added.")
@@ -795,8 +944,15 @@ func editGotify(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["server_url"] = serverURL
 	existing.Options["token"] = token
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Gotify settings updated.")
 	return nil
@@ -835,10 +991,17 @@ func addHomeAssistant(cfg *config.Config) error {
 		"service": service,
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "homeassistant",
-		Enabled: true,
-		Options: options,
+		Type:        "homeassistant",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Home Assistant notifier added.")
@@ -868,9 +1031,16 @@ func editHomeAssistant(cfg *config.Config, existing *config.NotifierConfig) erro
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["url"] = url
 	existing.Options["token"] = token
 	existing.Options["service"] = service
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Home Assistant settings updated.")
 	return nil
@@ -904,10 +1074,17 @@ func addGoogleChat(cfg *config.Config) error {
 		options["thread_key"] = threadKey
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "googlechat",
-		Enabled: true,
-		Options: options,
+		Type:        "googlechat",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Google Chat notifier added.")
@@ -933,12 +1110,19 @@ func editGoogleChat(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["webhook_url"] = webhookURL
 	if threadKey != "" {
 		existing.Options["thread_key"] = threadKey
 	} else {
 		delete(existing.Options, "thread_key")
 	}
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Google Chat settings updated.")
 	return nil
@@ -975,10 +1159,17 @@ func addMatrix(cfg *config.Config) error {
 		"room_id":      roomID,
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "matrix",
-		Enabled: true,
-		Options: options,
+		Type:        "matrix",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Matrix notifier added.")
@@ -1007,9 +1198,16 @@ func editMatrix(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["homeserver"] = homeserver
 	existing.Options["access_token"] = accessToken
 	existing.Options["room_id"] = roomID
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Matrix settings updated.")
 	return nil
@@ -1056,10 +1254,17 @@ func addMattermost(cfg *config.Config) error {
 		options["icon_url"] = iconURL
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "mattermost",
-		Enabled: true,
-		Options: options,
+		Type:        "mattermost",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Mattermost notifier added.")
@@ -1094,6 +1299,11 @@ func editMattermost(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["webhook_url"] = webhookURL
 	existing.Options["username"] = username
 	if channel != "" {
@@ -1106,6 +1316,8 @@ func editMattermost(cfg *config.Config, existing *config.NotifierConfig) error {
 	} else {
 		delete(existing.Options, "icon_url")
 	}
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Mattermost settings updated.")
 	return nil
@@ -1145,10 +1357,17 @@ func addRocketChat(cfg *config.Config) error {
 		options["channel"] = channel
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "rocketchat",
-		Enabled: true,
-		Options: options,
+		Type:        "rocketchat",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Rocket.Chat notifier added.")
@@ -1178,6 +1397,11 @@ func editRocketChat(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["webhook_url"] = webhookURL
 	existing.Options["username"] = username
 	if channel != "" {
@@ -1185,6 +1409,8 @@ func editRocketChat(cfg *config.Config, existing *config.NotifierConfig) error {
 	} else {
 		delete(existing.Options, "channel")
 	}
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Rocket.Chat settings updated.")
 	return nil
@@ -1222,10 +1448,17 @@ func addPagerDuty(cfg *config.Config) error {
 		"severity":    severity,
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "pagerduty",
-		Enabled: true,
-		Options: options,
+		Type:        "pagerduty",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  PagerDuty notifier added.")
@@ -1256,8 +1489,15 @@ func editPagerDuty(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["routing_key"] = routingKey
 	existing.Options["severity"] = severity
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  PagerDuty settings updated.")
 	return nil
@@ -1298,10 +1538,17 @@ func addPushbullet(cfg *config.Config) error {
 		options["channel_tag"] = channelTag
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
 	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
-		Type:    "pushbullet",
-		Enabled: true,
-		Options: options,
+		Type:        "pushbullet",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options:     options,
 	})
 
 	fmt.Println("  Pushbullet notifier added.")
@@ -1332,6 +1579,11 @@ func editPushbullet(cfg *config.Config, existing *config.NotifierConfig) error {
 		return nil
 	}
 
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
 	existing.Options["access_token"] = accessToken
 	if deviceIden != "" {
 		existing.Options["device_iden"] = deviceIden
@@ -1343,6 +1595,8 @@ func editPushbullet(cfg *config.Config, existing *config.NotifierConfig) error {
 	} else {
 		delete(existing.Options, "channel_tag")
 	}
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
 
 	fmt.Println("  Pushbullet settings updated.")
 	return nil
