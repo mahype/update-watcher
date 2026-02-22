@@ -20,6 +20,7 @@ import (
 	_ "github.com/mahype/update-watcher/checker/flatpak"
 	_ "github.com/mahype/update-watcher/checker/homebrew"
 	_ "github.com/mahype/update-watcher/checker/macos"
+	_ "github.com/mahype/update-watcher/checker/npm"
 	_ "github.com/mahype/update-watcher/checker/openclaw"
 	_ "github.com/mahype/update-watcher/checker/pacman"
 	_ "github.com/mahype/update-watcher/checker/snap"

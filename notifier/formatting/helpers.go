@@ -42,7 +42,7 @@ func CheckerEmoji(name string, useEmoji bool) string {
 		return "\U0001f433" // 🐳
 	case "wordpress":
 		return "\U0001f4dd" // 📝
-	case "webproject", "snap", "flatpak":
+	case "npm", "webproject", "snap", "flatpak":
 		return "\U0001f4e6" // 📦
 	case "homebrew":
 		return "\U0001f37a" // 🍺
@@ -72,6 +72,8 @@ func CheckerDisplayName(name string) string {
 		return "APK Updates"
 	case "macos":
 		return "macOS Updates"
+	case "npm":
+		return "npm Global Updates"
 	case "docker":
 		return "Docker Updates"
 	case "wordpress":
@@ -107,6 +109,8 @@ func UpdateCommand(checkerName string) string {
 		return "softwareupdate -i -a"
 	case "homebrew":
 		return "brew upgrade"
+	case "npm":
+		return "npm update -g"
 	case "snap":
 		return "sudo snap refresh"
 	case "flatpak":

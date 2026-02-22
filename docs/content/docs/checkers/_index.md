@@ -1,6 +1,6 @@
 ---
 title: Checkers
-description: "Update-Watcher supports 14 package manager checkers. Monitor system packages, Docker containers, WordPress sites, and web project dependencies."
+description: "Update-Watcher supports 15 package manager checkers. Monitor system packages, Docker containers, WordPress sites, and web project dependencies."
 weight: 30
 ---
 
@@ -19,6 +19,7 @@ You can enable any combination of checkers in your configuration. The interactiv
 | [APK](apk/) | Alpine Linux | System package updates via `apk`, ideal for Alpine containers. |
 | [macOS](macos/) | macOS | Native macOS software updates via `softwareupdate`. |
 | [Homebrew](homebrew/) | macOS, Linux | Outdated Homebrew formulae and casks. |
+| [npm](npm/) | Linux, macOS | Outdated globally installed npm packages. |
 | [Snap](snap/) | Ubuntu, Linux | Snap package updates via `snap refresh --list`. |
 | [Flatpak](flatpak/) | Linux | Flatpak application updates across all configured remotes. |
 | [Docker](docker/) | Linux, macOS | Detect newer Docker images for running containers without pulling anything. |
@@ -45,6 +46,7 @@ Monitor updates on macOS workstations and CI runners.
 
 - [macOS](macos/) -- Native software updates via `softwareupdate`
 - [Homebrew](homebrew/) -- Formulae and cask updates via `brew`
+- [npm](npm/) -- Globally installed npm packages
 
 ### Application Stores
 

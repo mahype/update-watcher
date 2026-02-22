@@ -381,7 +381,11 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 		opts = append(opts, huh.NewOption("Send Test Notification", menuTestNotification))
 	}
 
-	opts = append(opts, huh.NewOption("Self-Update", menuSelfUpdate))
+	selfUpdateLabel := "Self-Update"
+	if version.Version != "dev" {
+		selfUpdateLabel += fmt.Sprintf(" (%s)", version.Version)
+	}
+	opts = append(opts, huh.NewOption(selfUpdateLabel, menuSelfUpdate))
 
 	opts = append(opts, huh.NewOption("Save & Exit", menuSaveExit))
 	return opts
@@ -389,7 +393,11 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 
 func printStatus(cfg *config.Config) {
 	fmt.Println()
-	fmt.Printf("=== update-watcher setup (%s) ===\n", version.Version)
+	if version.Version != "dev" {
+		fmt.Printf("=== update-watcher setup (%s) ===\n", version.Version)
+	} else {
+		fmt.Println("=== update-watcher setup ===")
+	}
 	fmt.Println()
 	fmt.Printf("  Hostname:      %s\n", cfg.Hostname)
 
@@ -512,6 +520,8 @@ func manageWatchers(cfg *config.Config) error {
 				fmt.Printf("    [✓] Homebrew (%s, casks: %v)\n", status, casks)
 			case "snap":
 				fmt.Printf("    [✓] Snap (%s)\n", status)
+			case "npm":
+				fmt.Printf("    [✓] npm global (%s)\n", status)
 			case "flatpak":
 				fmt.Printf("    [✓] Flatpak (%s)\n", status)
 			case "openclaw":
@@ -553,6 +563,9 @@ func manageWatchers(cfg *config.Config) error {
 		}
 		if isToolAvailable("snap") {
 			options = append(options, huh.NewOption("Add Snap watcher", "add-snap"))
+		}
+		if isToolAvailable("npm") {
+			options = append(options, huh.NewOption("Add npm global watcher", "add-npm"))
 		}
 		if isToolAvailable("flatpak") {
 			options = append(options, huh.NewOption("Add Flatpak watcher", "add-flatpak"))
@@ -607,6 +620,8 @@ func manageWatchers(cfg *config.Config) error {
 			addHomebrewWatcher(cfg)
 		case "add-snap":
 			addSnapWatcher(cfg)
+		case "add-npm":
+			addNpmWatcher(cfg)
 		case "add-flatpak":
 			addFlatpakWatcher(cfg)
 		case "add-docker":
@@ -868,6 +883,15 @@ func addSnapWatcher(cfg *config.Config) {
 		Options: map[string]interface{}{},
 	})
 	fmt.Println("  Snap watcher configured.")
+}
+
+func addNpmWatcher(cfg *config.Config) {
+	cfg.AddWatcher(config.WatcherConfig{
+		Type:    "npm",
+		Enabled: true,
+		Options: map[string]interface{}{},
+	})
+	fmt.Println("  npm global watcher configured.")
 }
 
 func addFlatpakWatcher(cfg *config.Config) {

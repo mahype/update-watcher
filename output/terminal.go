@@ -173,6 +173,8 @@ func checkerIcon(name string) string {
 		return "[MAC]"
 	case "homebrew":
 		return "[BREW]"
+	case "npm":
+		return "[NPM]"
 	case "snap":
 		return "[SNAP]"
 	case "flatpak":

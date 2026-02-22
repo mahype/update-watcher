@@ -10,7 +10,7 @@ import (
 var watchCmd = &cobra.Command{
 	Use:   "watch",
 	Short: "Add a watcher to the configuration",
-	Long:  "Add a new update checker (apt, dnf, pacman, zypper, apk, docker, wordpress, webproject, or macos) to the configuration.",
+	Long:  "Add a new update checker (apt, dnf, pacman, zypper, apk, npm, docker, wordpress, webproject, or macos) to the configuration.",
 }
 
 func init() {

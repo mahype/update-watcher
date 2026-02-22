@@ -38,7 +38,7 @@ Test a single package: `go test ./checker/apt/...`
 | Directory | Purpose |
 |-----------|---------|
 | `cmd/` | Cobra commands (run, setup, watch, status, validate, install-cron, selfupdate, etc.) |
-| `checker/` | 14 checker implementations (apt, dnf, pacman, zypper, apk, homebrew, macos, docker, snap, flatpak, wordpress, webproject, distro, openclaw) |
+| `checker/` | 15 checker implementations (apt, dnf, pacman, zypper, apk, npm, homebrew, macos, docker, snap, flatpak, wordpress, webproject, distro, openclaw) |
 | `notifier/` | 16 notifier implementations (slack, discord, teams, telegram, email, ntfy, pushover, gotify, homeassistant, googlechat, matrix, mattermost, rocketchat, pagerduty, pushbullet, webhook) |
 | `notifier/formatting/` | Message formatting (plaintext, markdown, helpers) |
 | `config/` | Config structs, loading, validation, defaults |
