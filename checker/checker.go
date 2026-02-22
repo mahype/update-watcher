@@ -71,6 +71,70 @@ const (
 	PriorityLow      = "low"
 )
 
+// priorityLevels maps priority strings to numeric levels for comparison.
+var priorityLevels = map[string]int{
+	PriorityLow:      1,
+	PriorityNormal:   2,
+	PriorityHigh:     3,
+	PriorityCritical: 4,
+}
+
+// PriorityLevel returns the numeric level for a priority string.
+// Unknown or empty priorities are treated as normal.
+func PriorityLevel(priority string) int {
+	if lvl, ok := priorityLevels[priority]; ok {
+		return lvl
+	}
+	return priorityLevels[PriorityNormal]
+}
+
+// ValidPriority reports whether the given string is a known priority value.
+func ValidPriority(p string) bool {
+	_, ok := priorityLevels[p]
+	return ok
+}
+
+// FilterByMinPriority returns only those updates whose priority is at or above
+// the given minimum. If minPriority is empty, all updates are returned.
+func FilterByMinPriority(updates []Update, minPriority string) []Update {
+	if minPriority == "" {
+		return updates
+	}
+	minLevel := PriorityLevel(minPriority)
+	filtered := make([]Update, 0, len(updates))
+	for _, u := range updates {
+		if PriorityLevel(u.Priority) >= minLevel {
+			filtered = append(filtered, u)
+		}
+	}
+	return filtered
+}
+
+// FilterResultsByPriority creates filtered copies of the given check results,
+// keeping only updates at or above the minimum priority. Original results are
+// never mutated. Returns the filtered results and the total number of remaining
+// updates across all results.
+func FilterResultsByPriority(results []*CheckResult, minPriority string) ([]*CheckResult, int) {
+	if minPriority == "" {
+		total := 0
+		for _, cr := range results {
+			total += len(cr.Updates)
+		}
+		return results, total
+	}
+
+	filtered := make([]*CheckResult, 0, len(results))
+	total := 0
+	for _, cr := range results {
+		kept := FilterByMinPriority(cr.Updates, minPriority)
+		total += len(kept)
+		cp := *cr
+		cp.Updates = kept
+		filtered = append(filtered, &cp)
+	}
+	return filtered, total
+}
+
 // CheckError wraps errors from checker execution with context.
 type CheckError struct {
 	CheckerName string
