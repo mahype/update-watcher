@@ -26,6 +26,18 @@ A modular CLI tool that checks for available software updates and sends notifica
 curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash
 ```
 
+With server setup (dedicated user, sudoers, cron):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash -s -- --server
+```
+
+Without server setup (binary only):
+
+```bash
+curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/install.sh | bash -s -- --no-server
+```
+
 ## Quick Start
 
 ```bash
