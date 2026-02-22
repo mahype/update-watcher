@@ -1,0 +1,59 @@
+baseURL: https://mahype.github.io/update-watcher/
+title: Update-Watcher
+languageCode: en-us
+enableGitInfo: true
+
+module:
+  imports:
+    - path: github.com/imfing/hextra
+
+markup:
+  goldmark:
+    renderer:
+      unsafe: true
+  highlight:
+    noClasses: false
+
+enableRobotsTXT: true
+
+sitemap:
+  changefreq: weekly
+  priority: 0.5
+
+params:
+  description: "Monitor 14 package managers for available updates and get notified via Slack, Discord, Teams, Telegram, Email & more. Single binary, zero dependencies, cron-ready."
+  navbar:
+    displayTitle: true
+    displayLogo: false
+  footer:
+    displayCopyright: false
+    displayPoweredBy: false
+  editURL:
+    enable: true
+    base: https://github.com/mahype/update-watcher/edit/main/docs/content
+  theme:
+    default: system
+    displayToggle: true
+  page:
+    width: wide
+
+menu:
+  main:
+    - name: Documentation
+      pageRef: /docs
+      weight: 1
+    - name: Checkers
+      pageRef: /docs/checkers
+      weight: 2
+    - name: Notifiers
+      pageRef: /docs/notifiers
+      weight: 3
+    - name: Search
+      weight: 4
+      params:
+        type: search
+    - name: GitHub
+      weight: 5
+      url: https://github.com/mahype/update-watcher
+      params:
+        icon: github
