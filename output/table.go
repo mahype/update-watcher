@@ -4,19 +4,26 @@ import (
 	"fmt"
 
 	"github.com/mahype/update-watcher/config"
+	"github.com/mahype/update-watcher/cron"
 )
 
 // PrintStatus prints the current configuration as a status table.
-func PrintStatus(cfg *config.Config, cronInstalled bool, cronSchedule string) {
+func PrintStatus(cfg *config.Config, cronJobs []cron.InstalledJob) {
 	fmt.Printf("\n=== Update Watcher Status ===\n\n")
 	fmt.Printf("  Hostname:    %s\n", cfg.Hostname)
 	fmt.Printf("  Config:      %s\n", config.ConfigPath())
 	fmt.Printf("  Send Policy: %s\n", cfg.Settings.SendPolicy)
 
-	if cronInstalled {
-		fmt.Printf("  Cron:        installed (%s)\n", cronSchedule)
-	} else {
+	if len(cronJobs) == 0 {
 		fmt.Printf("  Cron:        not installed\n")
+	} else {
+		for i, j := range cronJobs {
+			prefix := "  Cron:        "
+			if i > 0 {
+				prefix = "               "
+			}
+			fmt.Printf("%s%s (%s)\n", prefix, cron.JobTypeLabel(j.Type), cron.FormatSchedule(j.Schedule))
+		}
 	}
 
 	fmt.Printf("\n  Watchers:\n")

@@ -65,6 +65,29 @@ func parseUpgradable(output string, securityOnly bool) []checker.Update {
 	return updates
 }
 
+// instSecurityRe matches Inst lines from apt-get -s output that originate from a security repo.
+// Ubuntu example: Inst libssl3 [3.0.13-0ubuntu3.1] (3.0.13-0ubuntu3.4 Ubuntu:22.04/jammy-security [amd64])
+// Debian example: Inst dpkg [1.19.7] (1.19.8 Debian-Security:10/oldstable [amd64])
+var instSecurityRe = regexp.MustCompile(
+	`(?i)^Inst\s+(\S+)\s+.*\(.*(?:-security|Debian-Security).*\)`,
+)
+
+// parseInstSecurity extracts package names from "apt-get -s dist-upgrade" output
+// whose Inst lines indicate they come from a security repo. Returns a set of package names.
+func parseInstSecurity(output string) map[string]bool {
+	security := make(map[string]bool)
+
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		matches := instSecurityRe.FindStringSubmatch(line)
+		if matches != nil {
+			security[matches[1]] = true
+		}
+	}
+
+	return security
+}
+
 // deferredRe matches the "deferred due to phasing" line from apt-get -s upgrade output.
 var deferredRe = regexp.MustCompile(
 	`The following upgrades have been deferred due to phasing:\s*\n((?:\s+\S.*\n?)*)`,

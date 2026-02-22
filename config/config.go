@@ -128,12 +128,27 @@ type NotifierConfig struct {
 	Options OptionsMap `yaml:"options,omitempty" mapstructure:"options"`
 }
 
+// CronJobType identifies the kind of cron job.
+type CronJobType string
+
+const (
+	CronJobCheck      CronJobType = "check"
+	CronJobSelfUpdate CronJobType = "self-update"
+)
+
+// CronJob represents a single scheduled cron entry.
+type CronJob struct {
+	Type     CronJobType `yaml:"type" mapstructure:"type"`
+	Schedule string      `yaml:"schedule" mapstructure:"schedule"`
+}
+
 // GlobalSettings holds cross-cutting settings.
 type GlobalSettings struct {
-	SendPolicy string `yaml:"send_policy" mapstructure:"send_policy"`
-	LogFile    string `yaml:"log_file,omitempty" mapstructure:"log_file"`
-	Schedule   string `yaml:"schedule,omitempty" mapstructure:"schedule"`
-	Quiet      bool   `yaml:"quiet,omitempty" mapstructure:"quiet"`
+	SendPolicy string    `yaml:"send_policy" mapstructure:"send_policy"`
+	LogFile    string    `yaml:"log_file,omitempty" mapstructure:"log_file"`
+	Schedule   string    `yaml:"schedule,omitempty" mapstructure:"schedule"` // Deprecated: use CronJobs
+	CronJobs   []CronJob `yaml:"cron_jobs,omitempty" mapstructure:"cron_jobs"`
+	Quiet      bool      `yaml:"quiet,omitempty" mapstructure:"quiet"`
 }
 
 // GetBool delegates to Options.GetBool for backward compatibility.
@@ -227,6 +242,7 @@ func Load() (*Config, error) {
 	}
 
 	applyDefaults(&cfg)
+	migrateSchedule(&cfg)
 	resolveConfigEnvVars(&cfg)
 
 	return &cfg, nil
@@ -352,4 +368,46 @@ func (c *Config) HasWatcher(watcherType string) bool {
 		}
 	}
 	return false
+}
+
+// FindCronJob returns the first cron job of the given type, or nil.
+func (c *Config) FindCronJob(jobType CronJobType) *CronJob {
+	for i := range c.Settings.CronJobs {
+		if c.Settings.CronJobs[i].Type == jobType {
+			return &c.Settings.CronJobs[i]
+		}
+	}
+	return nil
+}
+
+// AddCronJob adds or replaces a cron job of the given type.
+func (c *Config) AddCronJob(job CronJob) {
+	for i, j := range c.Settings.CronJobs {
+		if j.Type == job.Type {
+			c.Settings.CronJobs[i] = job
+			return
+		}
+	}
+	c.Settings.CronJobs = append(c.Settings.CronJobs, job)
+}
+
+// RemoveCronJob removes a cron job of the given type.
+func (c *Config) RemoveCronJob(jobType CronJobType) bool {
+	for i, j := range c.Settings.CronJobs {
+		if j.Type == jobType {
+			c.Settings.CronJobs = append(c.Settings.CronJobs[:i], c.Settings.CronJobs[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// migrateSchedule converts the deprecated Schedule field to CronJobs.
+func migrateSchedule(cfg *Config) {
+	if cfg.Settings.Schedule != "" && len(cfg.Settings.CronJobs) == 0 {
+		cfg.Settings.CronJobs = []CronJob{
+			{Type: CronJobCheck, Schedule: cfg.Settings.Schedule},
+		}
+		cfg.Settings.Schedule = ""
+	}
 }

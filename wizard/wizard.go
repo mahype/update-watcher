@@ -17,6 +17,8 @@ import (
 	"github.com/mahype/update-watcher/config"
 	"github.com/mahype/update-watcher/cron"
 	"github.com/mahype/update-watcher/internal/hostname"
+	"github.com/mahype/update-watcher/internal/selfupdate"
+	"github.com/mahype/update-watcher/internal/version"
 	"github.com/mahype/update-watcher/notifier"
 	"github.com/mahype/update-watcher/output"
 	"github.com/mahype/update-watcher/runner"
@@ -181,6 +183,7 @@ const (
 	menuCron          = "cron"
 	menuTestRun          = "test"
 	menuTestNotification = "test-notification"
+	menuSelfUpdate       = "self-update"
 	menuSaveExit         = "save"
 )
 
@@ -232,6 +235,10 @@ func Run(cfg *config.Config) (*config.Config, error) {
 			runTestCheck(cfg)
 		case menuTestNotification:
 			sendTestNotification(cfg)
+		case menuSelfUpdate:
+			if err := runSelfUpdate(); err != nil {
+				return cfg, err
+			}
 		case menuSaveExit:
 			return cfg, nil
 		}
@@ -241,25 +248,65 @@ func Run(cfg *config.Config) (*config.Config, error) {
 // ErrTestRun signals that the user wants to run a test check.
 var errTestRun = fmt.Errorf("test-run-requested")
 
+// ErrSelfUpdated signals that a self-update was performed and the binary should be re-executed.
+var ErrSelfUpdated = fmt.Errorf("self-updated")
+
 // IsTestRunRequested checks if the wizard exit was a test run request.
 func IsTestRunRequested(err error) bool {
 	return err == errTestRun
 }
 
+func runSelfUpdate() error {
+	fmt.Printf("\n  Checking for updates (current: %s)...\n", version.Version)
+
+	release, err := selfupdate.LatestRelease()
+	if err != nil {
+		fmt.Printf("  Error checking for updates: %s\n", err)
+		fmt.Println()
+		fmt.Print("  Press Enter to continue...")
+		fmt.Scanln()
+		return nil
+	}
+
+	if !selfupdate.NeedsUpdate(version.Version, release) {
+		fmt.Printf("  Already up to date (%s)\n", version.Version)
+		fmt.Println()
+		fmt.Print("  Press Enter to continue...")
+		fmt.Scanln()
+		return nil
+	}
+
+	fmt.Printf("  New version available: %s\n\n", release.TagName)
+
+	var confirm bool
+	err = huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title(fmt.Sprintf("Update to %s?", release.TagName)).
+				Value(&confirm),
+		),
+	).Run()
+	if err != nil || !confirm {
+		return nil
+	}
+
+	fmt.Printf("  Downloading %s...\n", release.TagName)
+	if err := selfupdate.DownloadAndReplace(release); err != nil {
+		fmt.Printf("  Update failed: %s\n", err)
+		fmt.Println()
+		fmt.Print("  Press Enter to continue...")
+		fmt.Scanln()
+		return nil
+	}
+
+	fmt.Printf("  Successfully updated to %s!\n", release.TagName)
+	return ErrSelfUpdated
+}
+
 // formatCronSchedule converts a cron expression to a human-readable string.
+// Delegates to cron.FormatSchedule.
 func formatCronSchedule(expr string) string {
-	parts := strings.Fields(expr)
-	if len(parts) < 5 {
-		return expr
-	}
-	if parts[2] == "*" && parts[3] == "*" && parts[4] == "*" {
-		minute, mErr := strconv.Atoi(parts[0])
-		hour, hErr := strconv.Atoi(parts[1])
-		if mErr == nil && hErr == nil {
-			return fmt.Sprintf("daily at %02d:%02d", hour, minute)
-		}
-	}
-	return expr
+	return cron.FormatSchedule(expr)
 }
 
 // buildMainMenuOptions returns menu options with dynamic labels reflecting current state.
@@ -309,12 +356,17 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 	}
 
 	// Cron label
-	cronLabel := "Manage Cron Job"
-	installed, schedule := cron.IsInstalled()
-	if installed {
-		cronLabel += " (" + formatCronSchedule(schedule) + ")"
+	cronLabel := "Manage Cron Jobs"
+	jobs := cron.InstalledJobs()
+	if len(jobs) == 0 {
+		cronLabel += " (none)"
 	} else {
-		cronLabel += " (not installed)"
+		var descriptions []string
+		for _, j := range jobs {
+			descriptions = append(descriptions, fmt.Sprintf("%s: %s",
+				cron.JobTypeLabel(j.Type), cron.FormatSchedule(j.Schedule)))
+		}
+		cronLabel += " (" + strings.Join(descriptions, "; ") + ")"
 	}
 
 	opts := []huh.Option[string]{
@@ -329,13 +381,15 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 		opts = append(opts, huh.NewOption("Send Test Notification", menuTestNotification))
 	}
 
+	opts = append(opts, huh.NewOption("Self-Update", menuSelfUpdate))
+
 	opts = append(opts, huh.NewOption("Save & Exit", menuSaveExit))
 	return opts
 }
 
 func printStatus(cfg *config.Config) {
 	fmt.Println()
-	fmt.Println("=== update-watcher setup ===")
+	fmt.Printf("=== update-watcher setup (%s) ===\n", version.Version)
 	fmt.Println()
 	fmt.Printf("  Hostname:      %s\n", cfg.Hostname)
 
@@ -379,11 +433,17 @@ func printStatus(cfg *config.Config) {
 	}
 
 	// Cron
-	installed, schedule := cron.IsInstalled()
-	if installed {
-		fmt.Printf("  Cron:          %s\n", schedule)
-	} else {
+	cronJobs := cron.InstalledJobs()
+	if len(cronJobs) == 0 {
 		fmt.Println("  Cron:          not installed")
+	} else {
+		for i, j := range cronJobs {
+			prefix := "  Cron:          "
+			if i > 0 {
+				prefix = "                 "
+			}
+			fmt.Printf("%s%s (%s)\n", prefix, cron.JobTypeLabel(j.Type), cron.FormatSchedule(j.Schedule))
+		}
 	}
 
 	fmt.Printf("  Send policy:   %s\n", cfg.Settings.SendPolicy)
@@ -1468,21 +1528,51 @@ func manageSettings(cfg *config.Config) error {
 // --- Cron sub-menu ---
 
 func manageCron(cfg *config.Config) error {
-	installed, schedule := cron.IsInstalled()
+	for {
+		jobs := cron.InstalledJobs()
 
-	if installed {
-		fmt.Printf("\n  Cron job installed: %s\n\n", schedule)
+		// Display current jobs
+		fmt.Println()
+		fmt.Println("  Scheduled cron jobs:")
+		if len(jobs) == 0 {
+			fmt.Println("    (none)")
+		}
+		for _, j := range jobs {
+			fmt.Printf("    %s — %s\n", cron.JobTypeLabel(j.Type), cron.FormatSchedule(j.Schedule))
+		}
+		fmt.Println()
+
+		// Build menu options
+		checkInstalled, _ := cron.IsJobInstalled(cron.JobCheck)
+		selfUpdateInstalled, _ := cron.IsJobInstalled(cron.JobSelfUpdate)
+
+		var options []huh.Option[string]
+
+		if !checkInstalled {
+			options = append(options, huh.NewOption("Add update check schedule", "add-check"))
+		} else {
+			options = append(options, huh.NewOption("Change update check schedule", "edit-check"))
+			options = append(options, huh.NewOption("Remove update check schedule", "remove-check"))
+		}
+
+		if !selfUpdateInstalled {
+			options = append(options, huh.NewOption("Add self-update schedule", "add-self-update"))
+		} else {
+			options = append(options, huh.NewOption("Change self-update schedule", "edit-self-update"))
+			options = append(options, huh.NewOption("Remove self-update schedule", "remove-self-update"))
+		}
+
+		if len(jobs) > 0 {
+			options = append(options, huh.NewOption("Remove all cron jobs", "remove-all"))
+		}
+		options = append(options, huh.NewOption("Back to main menu", "back"))
 
 		var choice string
 		err := huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
-					Title("Cron Job").
-					Options(
-						huh.NewOption("Change schedule", "change"),
-						huh.NewOption("Remove cron job", "remove"),
-						huh.NewOption("Back to main menu", "back"),
-					).
+					Title("Manage Cron Jobs").
+					Options(options...).
 					Value(&choice),
 			),
 		).Run()
@@ -1491,60 +1581,153 @@ func manageCron(cfg *config.Config) error {
 		}
 
 		switch choice {
-		case "change":
-			return installCronInteractive(cfg)
-		case "remove":
-			if err := cron.Uninstall(); err != nil {
+		case "add-check", "edit-check":
+			installCronJobInteractive(cfg, cron.JobCheck)
+		case "add-self-update", "edit-self-update":
+			installCronJobInteractive(cfg, cron.JobSelfUpdate)
+		case "remove-check":
+			if err := cron.UninstallJob(cron.JobCheck); err != nil {
 				fmt.Printf("  Error: %s\n", err)
 			} else {
-				fmt.Println("  Cron job removed.")
+				cfg.RemoveCronJob(config.CronJobCheck)
+				fmt.Println("  Update check cron job removed.")
 			}
-		}
-	} else {
-		var install bool
-		err := huh.NewForm(
-			huh.NewGroup(
-				huh.NewConfirm().
-					Title("Install cron job for daily checks?").
-					Value(&install),
-			),
-		).Run()
-		if err != nil {
+		case "remove-self-update":
+			if err := cron.UninstallJob(cron.JobSelfUpdate); err != nil {
+				fmt.Printf("  Error: %s\n", err)
+			} else {
+				cfg.RemoveCronJob(config.CronJobSelfUpdate)
+				fmt.Println("  Self-update cron job removed.")
+			}
+		case "remove-all":
+			if err := cron.UninstallAll(); err != nil {
+				fmt.Printf("  Error: %s\n", err)
+			} else {
+				cfg.Settings.CronJobs = nil
+				fmt.Println("  All cron jobs removed.")
+			}
+		case "back":
 			return nil
 		}
-		if install {
-			return installCronInteractive(cfg)
-		}
 	}
-	return nil
 }
 
-func installCronInteractive(cfg *config.Config) error {
-	cronTime := "07:00"
-	if cfg.Settings.Schedule != "" {
-		// Try to extract time from existing cron expression (e.g. "0 7 * * *" -> "07:00")
-		parts := strings.Fields(cfg.Settings.Schedule)
-		if len(parts) >= 2 {
-			cronTime = fmt.Sprintf("%02s:%02s", parts[1], parts[0])
-		}
-	}
-
+func installCronJobInteractive(cfg *config.Config, jobType cron.JobType) {
+	// Schedule type selection
+	var scheduleType string
 	err := huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().
-				Title("Check time (HH:MM)").
-				Value(&cronTime),
+			huh.NewSelect[string]().
+				Title(fmt.Sprintf("Schedule type for %s", cron.JobTypeLabel(jobType))).
+				Options(
+					huh.NewOption("Daily at a specific time (e.g. 07:00)", "daily"),
+					huh.NewOption("Interval (e.g. every 6 hours)", "interval"),
+					huh.NewOption("Custom cron expression", "custom"),
+				).
+				Value(&scheduleType),
 		),
 	).Run()
 	if err != nil {
-		return nil
+		return
 	}
 
-	if err := cron.Install(cronTime); err != nil {
-		fmt.Printf("  Error: %s\n", err)
-		fmt.Printf("  You can install manually: update-watcher install-cron --time=%s\n", cronTime)
-	} else {
-		fmt.Printf("  Cron job installed for daily checks at %s\n", cronTime)
+	var cronExpr string
+
+	switch scheduleType {
+	case "daily":
+		cronTime := "07:00"
+		// Pre-fill from existing job
+		if existing := cfg.FindCronJob(config.CronJobType(jobType)); existing != nil {
+			parts := strings.Fields(existing.Schedule)
+			if len(parts) >= 2 {
+				if m, err1 := strconv.Atoi(parts[0]); err1 == nil {
+					if h, err2 := strconv.Atoi(parts[1]); err2 == nil {
+						cronTime = fmt.Sprintf("%02d:%02d", h, m)
+					}
+				}
+			}
+		}
+
+		err = huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Check time (HH:MM)").
+					Value(&cronTime),
+			),
+		).Run()
+		if err != nil {
+			return
+		}
+
+		hour, minute, parseErr := cron.ParseTime(cronTime)
+		if parseErr != nil {
+			fmt.Printf("  Error: %s\n", parseErr)
+			return
+		}
+		cronExpr = fmt.Sprintf("%d %d * * *", minute, hour)
+
+	case "interval":
+		intervalValue := "6"
+		intervalUnit := "hours"
+
+		err = huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Interval value").
+					Description("How often to run (number)").
+					Value(&intervalValue),
+				huh.NewSelect[string]().
+					Title("Interval unit").
+					Options(
+						huh.NewOption("Hours", "hours"),
+						huh.NewOption("Minutes", "minutes"),
+					).
+					Value(&intervalUnit),
+			),
+		).Run()
+		if err != nil {
+			return
+		}
+
+		val, parseErr := strconv.Atoi(intervalValue)
+		if parseErr != nil {
+			fmt.Printf("  Error: invalid number %q\n", intervalValue)
+			return
+		}
+
+		cronExpr, err = cron.IntervalToExpr(val, intervalUnit)
+		if err != nil {
+			fmt.Printf("  Error: %s\n", err)
+			return
+		}
+
+	case "custom":
+		cronExpr = "0 7 * * *"
+		err = huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Cron expression").
+					Description("Five-field cron format: minute hour day month weekday").
+					Value(&cronExpr),
+			),
+		).Run()
+		if err != nil {
+			return
+		}
 	}
-	return nil
+
+	// Install in crontab
+	if err := cron.InstallJobWithExpr(jobType, cronExpr); err != nil {
+		fmt.Printf("  Error: %s\n", err)
+		fmt.Printf("  You can install manually: update-watcher install-cron --type=%s --cron-expr=%q\n", jobType, cronExpr)
+		return
+	}
+
+	// Save to config
+	cfg.AddCronJob(config.CronJob{
+		Type:     config.CronJobType(jobType),
+		Schedule: cronExpr,
+	})
+
+	fmt.Printf("  %s cron job installed: %s\n", cron.JobTypeLabel(jobType), cron.FormatSchedule(cronExpr))
 }

@@ -22,20 +22,19 @@ var statusCmd = &cobra.Command{
 
 		format, _ := cmd.Flags().GetString("format")
 
-		cronInstalled, cronSchedule := cron.IsInstalled()
+		cronJobs := cron.InstalledJobs()
 
 		switch format {
 		case "json":
 			data := map[string]interface{}{
-				"config":         cfg,
-				"cron_installed": cronInstalled,
-				"cron_schedule":  cronSchedule,
+				"config":    cfg,
+				"cron_jobs": cronJobs,
 			}
 			enc := json.NewEncoder(os.Stdout)
 			enc.SetIndent("", "  ")
 			return enc.Encode(data)
 		default:
-			output.PrintStatus(cfg, cronInstalled, cronSchedule)
+			output.PrintStatus(cfg, cronJobs)
 		}
 
 		return nil

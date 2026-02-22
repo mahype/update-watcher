@@ -179,6 +179,97 @@ The following upgrades have been deferred due to phasing:
 	}
 }
 
+const sampleInstOutput = `Reading package lists...
+Building dependency tree...
+Reading state information...
+Calculating upgrade...
+The following packages will be upgraded:
+  curl libssl3 openssl vim
+Inst libssl3 [3.0.13-0ubuntu3.1] (3.0.13-0ubuntu3.4 Ubuntu:22.04/jammy-security [amd64])
+Inst openssl [3.0.13-0ubuntu3.1] (3.0.13-0ubuntu3.4 Ubuntu:22.04/jammy-security [amd64])
+Inst curl [8.5.0-2ubuntu10.1] (8.5.0-2ubuntu10.6 Ubuntu:22.04/jammy-updates [amd64])
+Inst vim [2:9.0.0242-1ubuntu1] (2:9.0.0242-1ubuntu1.1 Ubuntu:22.04/jammy-updates [amd64])
+Conf libssl3 (3.0.13-0ubuntu3.4 Ubuntu:22.04/jammy-security [amd64])
+Conf openssl (3.0.13-0ubuntu3.4 Ubuntu:22.04/jammy-security [amd64])
+Conf curl (8.5.0-2ubuntu10.6 Ubuntu:22.04/jammy-updates [amd64])
+Conf vim (2:9.0.0242-1ubuntu1.1 Ubuntu:22.04/jammy-updates [amd64])
+4 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+`
+
+func TestParseInstSecurity(t *testing.T) {
+	security := parseInstSecurity(sampleInstOutput)
+
+	if len(security) != 2 {
+		t.Fatalf("expected 2 security packages, got %d", len(security))
+	}
+	if !security["libssl3"] {
+		t.Error("expected libssl3 to be security")
+	}
+	if !security["openssl"] {
+		t.Error("expected openssl to be security")
+	}
+	if security["curl"] {
+		t.Error("curl should not be security")
+	}
+	if security["vim"] {
+		t.Error("vim should not be security")
+	}
+}
+
+func TestParseInstSecurityDebian(t *testing.T) {
+	output := `Inst dpkg [1.19.7] (1.19.8 Debian-Security:10/oldstable [amd64])
+Inst git [1:2.20.1-2+deb10u8] (1:2.20.1-2+deb10u9 Debian:10.13/oldstable [amd64])
+`
+	security := parseInstSecurity(output)
+
+	if len(security) != 1 {
+		t.Fatalf("expected 1 security package, got %d", len(security))
+	}
+	if !security["dpkg"] {
+		t.Error("expected dpkg to be security")
+	}
+	if security["git"] {
+		t.Error("git should not be security")
+	}
+}
+
+func TestParseInstSecurityEmpty(t *testing.T) {
+	security := parseInstSecurity("0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.\n")
+	if len(security) != 0 {
+		t.Fatalf("expected 0 security packages, got %d", len(security))
+	}
+}
+
+func TestSecurityCrossCheck(t *testing.T) {
+	// Simulate: apt list shows curl as regular, but Inst line reveals it's from security
+	updates := []checker.Update{
+		{Name: "curl", Type: checker.UpdateTypeRegular, Priority: checker.PriorityNormal},
+		{Name: "vim", Type: checker.UpdateTypeRegular, Priority: checker.PriorityNormal},
+	}
+
+	instOutput := `Inst curl [8.5.0-2] (8.5.0-6 Ubuntu:22.04/jammy-security [amd64])
+Inst vim [2:9.0.0242-1ubuntu1] (2:9.0.0242-1ubuntu1.1 Ubuntu:22.04/jammy-updates [amd64])
+`
+	instSecurity := parseInstSecurity(instOutput)
+
+	for i := range updates {
+		if updates[i].Type != checker.UpdateTypeSecurity && instSecurity[updates[i].Name] {
+			updates[i].Type = checker.UpdateTypeSecurity
+			updates[i].Priority = checker.PriorityHigh
+		}
+	}
+
+	if updates[0].Type != checker.UpdateTypeSecurity {
+		t.Errorf("expected curl to be reclassified as security, got %s", updates[0].Type)
+	}
+	if updates[0].Priority != checker.PriorityHigh {
+		t.Errorf("expected curl priority to be high, got %s", updates[0].Priority)
+	}
+	if updates[1].Type != checker.UpdateTypeRegular {
+		t.Errorf("expected vim to remain regular, got %s", updates[1].Type)
+	}
+}
+
 func TestHidePhased(t *testing.T) {
 	updates := []checker.Update{
 		{Name: "curl", Phasing: ""},

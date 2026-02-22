@@ -59,18 +59,28 @@ func (a *AptChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 
 	result.Updates = parseUpgradable(listResult.Stdout, a.securityOnly)
 
-	// Detect phased updates via dry-run simulation.
+	// Use dry-run simulation for phased update detection and security cross-check.
 	// apt list --upgradable does not always show the [phased X%] marker,
-	// but apt-get -s upgrade reliably reports "deferred due to phasing".
-	slog.Info("detecting phased updates via dry-run")
-	simResult, err := executil.Run("apt-get", "-s", "upgrade")
+	// but apt-get -s dist-upgrade reliably reports "deferred due to phasing".
+	// It also provides Inst lines with full origin info for security classification.
+	slog.Info("detecting phased updates and security origins via dry-run")
+	simResult, err := executil.Run("apt-get", "-s", "dist-upgrade")
 	if err != nil {
-		slog.Warn("apt-get -s upgrade failed, skipping phased detection", "error", err)
+		slog.Warn("apt-get -s dist-upgrade failed, skipping phased/security detection", "error", err)
 	} else {
 		deferred := parseDeferredPackages(simResult.Stdout)
 		for i := range result.Updates {
 			if result.Updates[i].Phasing == "" && deferred[result.Updates[i].Name] {
 				result.Updates[i].Phasing = "deferred"
+			}
+		}
+
+		// Cross-check security classification from Inst lines.
+		instSecurity := parseInstSecurity(simResult.Stdout)
+		for i := range result.Updates {
+			if result.Updates[i].Type != checker.UpdateTypeSecurity && instSecurity[result.Updates[i].Name] {
+				result.Updates[i].Type = checker.UpdateTypeSecurity
+				result.Updates[i].Priority = checker.PriorityHigh
 			}
 		}
 	}

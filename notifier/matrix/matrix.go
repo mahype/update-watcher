@@ -59,7 +59,8 @@ func NewFromConfig(cfg config.NotifierConfig) (notifier.Notifier, error) {
 func (m *MatrixNotifier) Name() string { return "matrix" }
 
 func (m *MatrixNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
-	_, body := formatting.BuildMarkdownMessage(hostname, results, formatting.DefaultOptions())
+	title, body := formatting.BuildMarkdownMessage(hostname, results, formatting.DefaultOptions())
+	body = fmt.Sprintf("**%s**\n\n%s", title, body)
 	plainText := formatting.BuildPlainTextMessage(hostname, results)
 
 	m.txnCounter++

@@ -180,4 +180,8 @@ notifiers:
 settings:
   send_policy: "only-on-updates"
   log_file: "/var/log/update-watcher.log"
-  schedule: "0 7 * * *"
+  cron_jobs:
+    - type: check
+      schedule: "0 7 * * *"        # Daily at 07:00
+    # - type: self-update
+    #   schedule: "0 3 * * 0"      # Weekly on Sunday at 03:00
