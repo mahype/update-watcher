@@ -173,19 +173,13 @@ func (r *Runner) Run() (*RunResult, error) {
 }
 
 func (r *Runner) notify(ctx context.Context, result *RunResult) error {
+	// Global override via --notify flag takes precedence over everything.
 	if r.notifyOpt != nil {
 		if !*r.notifyOpt {
 			slog.Info("notifications disabled via --notify=false")
 			return nil
 		}
 		slog.Info("notifications forced via --notify=true")
-	} else {
-		// No explicit override — use send_policy from config.
-		policy := r.cfg.Settings.SendPolicy
-		if policy == "only-on-updates" && result.TotalUpdates == 0 && len(result.Errors) == 0 {
-			slog.Info("no updates found, skipping notification (send_policy: only-on-updates)")
-			return nil
-		}
 	}
 
 	var notifyErrors []error
@@ -194,14 +188,46 @@ func (r *Runner) notify(ctx context.Context, result *RunResult) error {
 			continue
 		}
 
+		// Determine effective send policy: per-notifier > global.
+		effectivePolicy := nCfg.SendPolicy
+		if effectivePolicy == "" {
+			effectivePolicy = r.cfg.Settings.SendPolicy
+		}
+
+		// Determine effective min_priority: per-notifier > global.
+		effectiveMinPriority := nCfg.MinPriority
+		if effectiveMinPriority == "" {
+			effectiveMinPriority = r.cfg.Settings.MinPriority
+		}
+
+		// Apply priority filtering (creates copies, does not mutate originals).
+		filteredResults, filteredTotal := checker.FilterResultsByPriority(result.Results, effectiveMinPriority)
+
+		// Apply send policy (unless --notify=true overrides).
+		if r.notifyOpt == nil {
+			if effectivePolicy == "only-on-updates" && filteredTotal == 0 && len(result.Errors) == 0 {
+				slog.Info("skipping notifier (no matching updates)",
+					"type", nCfg.Type,
+					"policy", effectivePolicy,
+					"min_priority", effectiveMinPriority,
+				)
+				continue
+			}
+		}
+
 		n, err := notifier.Create(nCfg.Type, nCfg)
 		if err != nil {
 			notifyErrors = append(notifyErrors, fmt.Errorf("notifier %q: %w", nCfg.Type, err))
 			continue
 		}
 
-		slog.Info("sending notification", "type", n.Name())
-		if err := n.Send(ctx, r.cfg.Hostname, result.Results); err != nil {
+		slog.Info("sending notification",
+			"type", n.Name(),
+			"policy", effectivePolicy,
+			"min_priority", effectiveMinPriority,
+			"filtered_updates", filteredTotal,
+		)
+		if err := n.Send(ctx, r.cfg.Hostname, filteredResults); err != nil {
 			notifyErrors = append(notifyErrors, fmt.Errorf("notifier %q: %w", n.Name(), err))
 			slog.Error("notification failed", "type", n.Name(), "error", err)
 		}
