@@ -68,13 +68,18 @@ func BuildHTMLMessage(hostname string, results []*checker.CheckResult) string {
 			writeUpdatesTable(&b, r)
 		}
 
-		if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+		if cmd := formatting.UpdateCommandForResult(r.CheckerName, r.Updates); cmd != "" && len(r.Updates) > 0 {
 			b.WriteString(fmt.Sprintf(`  <p style="margin-top: 8px; font-size: 13px; color: #6b7280;">💡 Update: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">%s</code></p>
 `, html.EscapeString(cmd)))
 		}
 
 		if count, cmd := formatting.PhasingNote(r.CheckerName, r.Updates); count > 0 {
 			b.WriteString(fmt.Sprintf(`  <p style="margin-top: 8px; font-size: 13px; color: #92400e; background: #fffbeb; padding: 8px 12px; border-radius: 4px;">⏳ %d phased update(s) cannot be installed via regular upgrade. Use: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">%s</code></p>
+`, count, html.EscapeString(cmd)))
+		}
+
+		if count, cmd := formatting.KeptBackNote(r.CheckerName, r.Updates); count > 0 {
+			b.WriteString(fmt.Sprintf(`  <p style="margin-top: 8px; font-size: 13px; color: #92400e; background: #fffbeb; padding: 8px 12px; border-radius: 4px;">⏳ %d package(s) held back — need new dependencies or removals. Use: <code style="background: #f3f4f6; padding: 2px 6px; border-radius: 3px;">%s</code></p>
 `, count, html.EscapeString(cmd)))
 		}
 
@@ -131,7 +136,9 @@ func writeUpdatesTable(b *strings.Builder, r *checker.CheckResult) {
 		b.WriteString(fmt.Sprintf("<td>%s</td>", html.EscapeString(u.NewVersion)))
 
 		typeDisplay := u.Type
-		if u.Phasing != "" {
+		if u.Phasing == "held" {
+			typeDisplay += " (kept back)"
+		} else if u.Phasing != "" {
 			typeDisplay += fmt.Sprintf(" (phased %s)", u.Phasing)
 		}
 		if u.Type == checker.UpdateTypeSecurity {

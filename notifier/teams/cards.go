@@ -77,7 +77,7 @@ func BuildAdaptiveCard(hostname string, results []*checker.CheckResult) map[stri
 			})
 		}
 
-		if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+		if cmd := formatting.UpdateCommandForResult(r.CheckerName, r.Updates); cmd != "" && len(r.Updates) > 0 {
 			items = append(items, map[string]interface{}{
 				"type":     "TextBlock",
 				"text":     fmt.Sprintf("\U0001f4a1 Update: `%s`", cmd),
@@ -91,6 +91,16 @@ func BuildAdaptiveCard(hostname string, results []*checker.CheckResult) map[stri
 			items = append(items, map[string]interface{}{
 				"type":    "TextBlock",
 				"text":    fmt.Sprintf("\u23f3 %d phased update(s) cannot be installed via regular upgrade. Use:\n`%s`", count, cmd),
+				"wrap":    true,
+				"color":   "Warning",
+				"spacing": "Small",
+			})
+		}
+
+		if count, cmd := formatting.KeptBackNote(r.CheckerName, r.Updates); count > 0 {
+			items = append(items, map[string]interface{}{
+				"type":    "TextBlock",
+				"text":    fmt.Sprintf("\u23f3 %d package(s) held back \u2014 need new dependencies or removals. Use:\n`%s`", count, cmd),
 				"wrap":    true,
 				"color":   "Warning",
 				"spacing": "Small",
@@ -155,7 +165,9 @@ func formatUpdatesTeams(r *checker.CheckResult) string {
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
-		if u.Phasing != "" {
+		if u.Phasing == "held" {
+			line += " *(kept back)*"
+		} else if u.Phasing != "" {
 			line += fmt.Sprintf(" *(phased %s)*", u.Phasing)
 		}
 		lines = append(lines, line)

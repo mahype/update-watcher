@@ -46,12 +46,16 @@ func BuildMessage(hostname string, results []*checker.CheckResult, useEmoji bool
 			sectionTitle += "\n\n" + body
 		}
 
-		if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+		if cmd := formatting.UpdateCommandForResult(r.CheckerName, r.Updates); cmd != "" && len(r.Updates) > 0 {
 			sectionTitle += fmt.Sprintf("\n\n\U0001f4a1 Update: `%s`", cmd)
 		}
 
 		if count, cmd := formatting.PhasingNote(r.CheckerName, r.Updates); count > 0 {
 			sectionTitle += fmt.Sprintf("\n\u23f3 %d phased update(s) cannot be installed via regular upgrade. Use:\n`%s`", count, cmd)
+		}
+
+		if count, cmd := formatting.KeptBackNote(r.CheckerName, r.Updates); count > 0 {
+			sectionTitle += fmt.Sprintf("\n\u23f3 %d package(s) held back \u2014 need new dependencies or removals. Use:\n`%s`", count, cmd)
 		}
 
 		for _, note := range r.Notes {
@@ -92,7 +96,9 @@ func formatUpdates(r *checker.CheckResult, useEmoji bool) string {
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
-		if u.Phasing != "" {
+		if u.Phasing == "held" {
+			line += " _(kept back)_"
+		} else if u.Phasing != "" {
 			line += fmt.Sprintf(" _(phased %s)_", u.Phasing)
 		}
 		lines = append(lines, line)

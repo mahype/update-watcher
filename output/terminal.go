@@ -56,7 +56,7 @@ func printCheckerResult(r *checker.CheckResult) {
 				suffix += "  [SECURITY]"
 			}
 			if u.Phasing == "held" {
-				suffix += "  [held back]"
+				suffix += "  [kept back]"
 			} else if u.Phasing != "" {
 				suffix += fmt.Sprintf("  [phased %s]", u.Phasing)
 			}

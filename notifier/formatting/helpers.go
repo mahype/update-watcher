@@ -287,7 +287,7 @@ func FormatUpdatesMarkdown(r *checker.CheckResult, useEmoji bool) string {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
 		if u.Phasing == "held" {
-			line += " _(held back)_"
+			line += " _(kept back)_"
 		} else if u.Phasing != "" {
 			line += fmt.Sprintf(" _(phased %s)_", u.Phasing)
 		}
@@ -347,7 +347,7 @@ func FormatUpdatesPlainText(r *checker.CheckResult) string {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
 		if u.Phasing == "held" {
-			line += " [held back]"
+			line += " [kept back]"
 		} else if u.Phasing != "" {
 			line += fmt.Sprintf(" [phased %s]", u.Phasing)
 		}

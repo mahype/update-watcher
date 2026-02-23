@@ -125,12 +125,16 @@ func buildHTMLMessage(hostname string, results []*checker.CheckResult) string {
 			section += "\n\n" + updates
 		}
 
-		if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+		if cmd := formatting.UpdateCommandForResult(r.CheckerName, r.Updates); cmd != "" && len(r.Updates) > 0 {
 			section += fmt.Sprintf("\n\n\U0001f4a1 Update: <code>%s</code>", html.EscapeString(cmd))
 		}
 
 		if count, cmd := formatting.PhasingNote(r.CheckerName, r.Updates); count > 0 {
 			section += fmt.Sprintf("\n\u23f3 %d phased update(s) cannot be installed via regular upgrade. Use:\n<code>%s</code>", count, html.EscapeString(cmd))
+		}
+
+		if count, cmd := formatting.KeptBackNote(r.CheckerName, r.Updates); count > 0 {
+			section += fmt.Sprintf("\n\u23f3 %d package(s) held back \u2014 need new dependencies or removals. Use:\n<code>%s</code>", count, html.EscapeString(cmd))
 		}
 
 		for _, note := range r.Notes {
@@ -171,7 +175,9 @@ func formatUpdatesHTML(r *checker.CheckResult) string {
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", html.EscapeString(u.Source))
 		}
-		if u.Phasing != "" {
+		if u.Phasing == "held" {
+			line += " <i>(kept back)</i>"
+		} else if u.Phasing != "" {
 			line += fmt.Sprintf(" <i>(phased %s)</i>", html.EscapeString(u.Phasing))
 		}
 		lines = append(lines, line)
