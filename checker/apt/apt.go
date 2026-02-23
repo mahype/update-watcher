@@ -85,6 +85,21 @@ func (a *AptChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 		}
 	}
 
+	// Detect kept-back packages via regular upgrade dry-run.
+	// apt-get -s upgrade (not dist-upgrade) reports packages that require
+	// new dependencies or removals as "kept back".
+	slog.Info("detecting kept-back packages via upgrade dry-run")
+	upgradeResult, err := executil.Run("apt-get", "-s", "upgrade")
+	if err != nil {
+		slog.Warn("apt-get -s upgrade failed, skipping kept-back detection", "error", err)
+	} else {
+		keptBack := parseKeptBackPackages(upgradeResult.Stdout)
+		if len(keptBack) > 0 {
+			result.Notes = append(result.Notes,
+				fmt.Sprintf("%d package(s) held back (need new dependencies or removals). Use: sudo apt full-upgrade", len(keptBack)))
+		}
+	}
+
 	// Filter out phased updates if configured.
 	if a.hidePhased {
 		var phasedCount int

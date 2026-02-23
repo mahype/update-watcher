@@ -270,6 +270,55 @@ Inst vim [2:9.0.0242-1ubuntu1] (2:9.0.0242-1ubuntu1.1 Ubuntu:22.04/jammy-updates
 	}
 }
 
+func TestParseKeptBackPackages(t *testing.T) {
+	output := `Reading package lists...
+Building dependency tree...
+Reading state information...
+The following packages have been kept back:
+  cuda-drivers cuda-drivers-580 libnvidia-cfg1-580 libnvidia-common-580 libnvidia-compute-580 libnvidia-decode-580 libnvidia-encode-580 libnvidia-extra-580 libnvidia-fbc1-580 libnvidia-gl-580 libnvidia-gpucomp-580
+  nvidia-dkms-580 nvidia-driver-580 nvidia-firmware-580 nvidia-kernel-common-580 nvidia-kernel-source-580 xserver-xorg-video-nvidia-580
+0 upgraded, 0 newly installed, 0 to remove and 17 not upgraded.
+`
+
+	keptBack := parseKeptBackPackages(output)
+	if len(keptBack) != 17 {
+		t.Fatalf("expected 17 kept-back packages, got %d", len(keptBack))
+	}
+	for _, name := range []string{"cuda-drivers", "nvidia-dkms-580", "xserver-xorg-video-nvidia-580"} {
+		if !keptBack[name] {
+			t.Errorf("expected %s to be kept back", name)
+		}
+	}
+}
+
+func TestParseKeptBackPackagesEmpty(t *testing.T) {
+	output := `Reading package lists...
+Building dependency tree...
+Reading state information...
+0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+`
+
+	keptBack := parseKeptBackPackages(output)
+	if len(keptBack) != 0 {
+		t.Fatalf("expected 0 kept-back packages, got %d", len(keptBack))
+	}
+}
+
+func TestParseKeptBackPackagesSingle(t *testing.T) {
+	output := `The following packages have been kept back:
+  linux-image-generic
+0 upgraded, 0 newly installed, 0 to remove and 1 not upgraded.
+`
+
+	keptBack := parseKeptBackPackages(output)
+	if len(keptBack) != 1 {
+		t.Fatalf("expected 1 kept-back package, got %d", len(keptBack))
+	}
+	if !keptBack["linux-image-generic"] {
+		t.Error("expected linux-image-generic to be kept back")
+	}
+}
+
 func TestHidePhased(t *testing.T) {
 	updates := []checker.Update{
 		{Name: "curl", Phasing: ""},

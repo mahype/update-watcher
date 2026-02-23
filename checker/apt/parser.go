@@ -93,6 +93,11 @@ var deferredRe = regexp.MustCompile(
 	`The following upgrades have been deferred due to phasing:\s*\n((?:\s+\S.*\n?)*)`,
 )
 
+// keptBackRe matches the "kept back" section from apt-get -s upgrade output.
+var keptBackRe = regexp.MustCompile(
+	`The following packages have been kept back:\s*\n((?:\s+\S.*\n?)*)`,
+)
+
 // parseDeferredPackages extracts package names from "apt-get -s upgrade" output
 // that are deferred due to phasing. Returns a set of package names.
 func parseDeferredPackages(output string) map[string]bool {
@@ -108,4 +113,21 @@ func parseDeferredPackages(output string) map[string]bool {
 	}
 
 	return deferred
+}
+
+// parseKeptBackPackages extracts package names from "apt-get -s upgrade" output
+// that are held back (require new dependencies or removals). Returns a set of package names.
+func parseKeptBackPackages(output string) map[string]bool {
+	keptBack := make(map[string]bool)
+
+	match := keptBackRe.FindStringSubmatch(output)
+	if match == nil {
+		return keptBack
+	}
+
+	for _, name := range strings.Fields(match[1]) {
+		keptBack[name] = true
+	}
+
+	return keptBack
 }
