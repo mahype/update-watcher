@@ -60,6 +60,19 @@ func (p *PacmanChecker) Check(ctx context.Context) (*checker.CheckResult, error)
 
 	result.Updates = parseUpgradable(listResult.Stdout)
 
+	// Try to enrich with arch-audit security information
+	if archAuditAvailable() {
+		vulns, auditErr := runArchAudit()
+		if auditErr != nil {
+			slog.Warn("arch-audit failed, skipping security enrichment", "error", auditErr)
+		} else {
+			result.Updates = enrichWithArchAudit(result.Updates, vulns)
+		}
+	} else {
+		result.Notes = append(result.Notes,
+			"Install arch-audit for security update detection: pacman -S arch-audit")
+	}
+
 	result.Summary = checker.BuildSummary(result.Updates, "packages")
 
 	return result, nil

@@ -752,6 +752,12 @@ func addPacmanWatcher(cfg *config.Config) {
 		},
 	})
 	fmt.Println("  Pacman watcher configured.")
+
+	if !isToolAvailable("arch-audit") {
+		fmt.Println()
+		fmt.Println("  Tip: Install arch-audit for security update detection:")
+		fmt.Println("     pacman -S arch-audit")
+	}
 }
 
 func addZypperWatcher(cfg *config.Config) {
