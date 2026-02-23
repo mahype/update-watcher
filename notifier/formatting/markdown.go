@@ -50,12 +50,16 @@ func BuildMarkdownMessage(hostname string, results []*checker.CheckResult, opts 
 			sectionTitle += "\n\n" + updates
 		}
 
-		if cmd := UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+		if cmd := UpdateCommandForResult(r.CheckerName, r.Updates); cmd != "" && len(r.Updates) > 0 {
 			sectionTitle += fmt.Sprintf("\n\n> \U0001f4a1 Update: `%s`", cmd)
 		}
 
 		if count, cmd := PhasingNote(r.CheckerName, r.Updates); count > 0 {
 			sectionTitle += fmt.Sprintf("\n> \u23f3 %d phased update(s) cannot be installed via regular upgrade. Use:\n> `%s`", count, cmd)
+		}
+
+		if count, cmd := KeptBackNote(r.CheckerName, r.Updates); count > 0 {
+			sectionTitle += fmt.Sprintf("\n> \u23f3 %d package(s) held back \u2014 need new dependencies or removals. Use:\n> `%s`", count, cmd)
 		}
 
 		for _, note := range r.Notes {

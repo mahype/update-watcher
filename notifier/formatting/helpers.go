@@ -133,9 +133,10 @@ func UpdateCommand(checkerName string) string {
 // PhasingNote checks if any updates are phased and returns the count
 // and the command to force-install them. Returns 0 and empty string if
 // no phased updates exist or phasing is not applicable for the checker.
+// Held-back packages (Phasing == "held") are excluded from the count.
 func PhasingNote(checkerName string, updates []checker.Update) (count int, command string) {
 	for _, u := range updates {
-		if u.Phasing != "" {
+		if u.Phasing != "" && u.Phasing != "held" {
 			count++
 		}
 	}
@@ -143,6 +144,35 @@ func PhasingNote(checkerName string, updates []checker.Update) (count int, comma
 		return 0, ""
 	}
 	return count, "sudo apt-get -o APT::Get::Always-Include-Phased-Updates=true upgrade"
+}
+
+// KeptBackNote checks if any updates are held back and returns the count
+// and the command to install them. Returns 0 and empty string if
+// no held-back updates exist or the checker is not apt.
+func KeptBackNote(checkerName string, updates []checker.Update) (count int, command string) {
+	for _, u := range updates {
+		if u.Phasing == "held" {
+			count++
+		}
+	}
+	if count == 0 || checkerName != "apt" {
+		return 0, ""
+	}
+	return count, "sudo apt full-upgrade"
+}
+
+// UpdateCommandForResult returns the shell command to apply updates, taking
+// held-back packages into account. For apt, if any update is held back,
+// it returns "sudo apt full-upgrade" instead of "sudo apt upgrade".
+func UpdateCommandForResult(checkerName string, updates []checker.Update) string {
+	if checkerName == "apt" {
+		for _, u := range updates {
+			if u.Phasing == "held" {
+				return "sudo apt full-upgrade"
+			}
+		}
+	}
+	return UpdateCommand(checkerName)
 }
 
 // UpdateGroup holds updates grouped by a key (e.g., site name, source).
@@ -256,7 +286,9 @@ func FormatUpdatesMarkdown(r *checker.CheckResult, useEmoji bool) string {
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
-		if u.Phasing != "" {
+		if u.Phasing == "held" {
+			line += " _(held back)_"
+		} else if u.Phasing != "" {
 			line += fmt.Sprintf(" _(phased %s)_", u.Phasing)
 		}
 		lines = append(lines, line)
@@ -314,7 +346,9 @@ func FormatUpdatesPlainText(r *checker.CheckResult) string {
 		if u.Source != "" {
 			line += fmt.Sprintf(" (%s)", u.Source)
 		}
-		if u.Phasing != "" {
+		if u.Phasing == "held" {
+			line += " [held back]"
+		} else if u.Phasing != "" {
 			line += fmt.Sprintf(" [phased %s]", u.Phasing)
 		}
 		lines = append(lines, line)

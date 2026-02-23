@@ -34,12 +34,16 @@ func BuildPlainTextMessage(hostname string, results []*checker.CheckResult) stri
 			parts = append(parts, updates)
 		}
 
-		if cmd := UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+		if cmd := UpdateCommandForResult(r.CheckerName, r.Updates); cmd != "" && len(r.Updates) > 0 {
 			parts = append(parts, fmt.Sprintf("  -> Update: %s", cmd))
 		}
 
 		if count, cmd := PhasingNote(r.CheckerName, r.Updates); count > 0 {
 			parts = append(parts, fmt.Sprintf("  -> %d phased update(s) cannot be installed via regular upgrade. Use: %s", count, cmd))
+		}
+
+		if count, cmd := KeptBackNote(r.CheckerName, r.Updates); count > 0 {
+			parts = append(parts, fmt.Sprintf("  -> %d package(s) held back \u2014 need new dependencies or removals. Use: %s", count, cmd))
 		}
 
 		for _, note := range r.Notes {

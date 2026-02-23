@@ -85,18 +85,19 @@ func (a *AptChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 		}
 	}
 
-	// Detect kept-back packages via regular upgrade dry-run.
-	// apt-get -s upgrade (not dist-upgrade) reports packages that require
+	// Detect kept-back packages via upgrade dry-run.
+	// apt upgrade --dry-run (not full-upgrade) reports packages that require
 	// new dependencies or removals as "kept back".
 	slog.Info("detecting kept-back packages via upgrade dry-run")
-	upgradeResult, err := executil.Run("apt-get", "-s", "upgrade")
+	upgradeResult, err := executil.Run("apt", "upgrade", "--dry-run")
 	if err != nil {
-		slog.Warn("apt-get -s upgrade failed, skipping kept-back detection", "error", err)
+		slog.Warn("apt upgrade --dry-run failed, skipping kept-back detection", "error", err)
 	} else {
 		keptBack := parseKeptBackPackages(upgradeResult.Stdout)
-		if len(keptBack) > 0 {
-			result.Notes = append(result.Notes,
-				fmt.Sprintf("%d package(s) held back (need new dependencies or removals). Use: sudo apt full-upgrade", len(keptBack)))
+		for i := range result.Updates {
+			if keptBack[result.Updates[i].Name] {
+				result.Updates[i].Phasing = "held"
+			}
 		}
 	}
 
@@ -105,7 +106,7 @@ func (a *AptChecker) Check(ctx context.Context) (*checker.CheckResult, error) {
 		var phasedCount int
 		filtered := result.Updates[:0]
 		for _, u := range result.Updates {
-			if u.Phasing == "" {
+			if u.Phasing == "" || u.Phasing == "held" {
 				filtered = append(filtered, u)
 			} else {
 				phasedCount++

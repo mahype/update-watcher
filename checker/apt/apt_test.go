@@ -330,7 +330,7 @@ func TestHidePhased(t *testing.T) {
 	// Simulate hide_phased filter
 	filtered := updates[:0]
 	for _, u := range updates {
-		if u.Phasing == "" {
+		if u.Phasing == "" || u.Phasing == "held" {
 			filtered = append(filtered, u)
 		}
 	}
@@ -343,5 +343,54 @@ func TestHidePhased(t *testing.T) {
 	}
 	if filtered[1].Name != "vim" {
 		t.Errorf("expected second to be vim, got %s", filtered[1].Name)
+	}
+}
+
+func TestKeptBackMarksUpdates(t *testing.T) {
+	updates := []checker.Update{
+		{Name: "curl"},
+		{Name: "cuda-drivers"},
+		{Name: "nvidia-dkms-580"},
+	}
+	keptBack := map[string]bool{"cuda-drivers": true, "nvidia-dkms-580": true}
+	for i := range updates {
+		if keptBack[updates[i].Name] {
+			updates[i].Phasing = "held"
+		}
+	}
+	if updates[0].Phasing != "" {
+		t.Errorf("curl should not be held, got %q", updates[0].Phasing)
+	}
+	if updates[1].Phasing != "held" {
+		t.Errorf("cuda-drivers should be held, got %q", updates[1].Phasing)
+	}
+	if updates[2].Phasing != "held" {
+		t.Errorf("nvidia-dkms-580 should be held, got %q", updates[2].Phasing)
+	}
+}
+
+func TestHidePhasedKeepsHeldBack(t *testing.T) {
+	updates := []checker.Update{
+		{Name: "curl", Phasing: ""},
+		{Name: "gcc-13", Phasing: "deferred"},
+		{Name: "cuda-drivers", Phasing: "held"},
+	}
+
+	// Simulate hide_phased filter (same logic as apt.go)
+	filtered := make([]checker.Update, 0, len(updates))
+	for _, u := range updates {
+		if u.Phasing == "" || u.Phasing == "held" {
+			filtered = append(filtered, u)
+		}
+	}
+
+	if len(filtered) != 2 {
+		t.Fatalf("expected 2 (curl + cuda-drivers), got %d", len(filtered))
+	}
+	if filtered[0].Name != "curl" {
+		t.Errorf("expected first to be curl, got %s", filtered[0].Name)
+	}
+	if filtered[1].Name != "cuda-drivers" {
+		t.Errorf("expected cuda-drivers to survive filter, got %s", filtered[1].Name)
 	}
 }

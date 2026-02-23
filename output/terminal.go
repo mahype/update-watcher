@@ -55,7 +55,9 @@ func printCheckerResult(r *checker.CheckResult) {
 			if u.Type == checker.UpdateTypeSecurity {
 				suffix += "  [SECURITY]"
 			}
-			if u.Phasing != "" {
+			if u.Phasing == "held" {
+				suffix += "  [held back]"
+			} else if u.Phasing != "" {
 				suffix += fmt.Sprintf("  [phased %s]", u.Phasing)
 			}
 			fmt.Printf("  [%s] %-30s %s -> %s%s\n", marker, u.Name, u.CurrentVersion, u.NewVersion, suffix)
@@ -66,7 +68,7 @@ func printCheckerResult(r *checker.CheckResult) {
 		fmt.Printf("\n  \u23f3 %s\n", note)
 	}
 
-	if cmd := formatting.UpdateCommand(r.CheckerName); cmd != "" && len(r.Updates) > 0 {
+	if cmd := formatting.UpdateCommandForResult(r.CheckerName, r.Updates); cmd != "" && len(r.Updates) > 0 {
 		fmt.Printf("\n  \U0001f4a1 Update: %s\n", cmd)
 	} else if len(r.Updates) > 0 && r.Updates[0].Source != "" {
 		fmt.Printf("\n  \U0001f4a1 Update: %s\n", r.Updates[0].Source)
