@@ -73,6 +73,8 @@ curl -sSL https://raw.githubusercontent.com/mahype/update-watcher/main/scripts/i
 
 ## Quick Start
 
+**Desktop / macOS**
+
 ```bash
 # Interactive setup wizard
 update-watcher setup
@@ -82,6 +84,21 @@ update-watcher run --notify=false
 
 # Schedule daily checks at 7:00 AM
 update-watcher install-cron
+```
+
+**Linux server** (after `--server` install)
+
+The installer creates a dedicated `update-watcher` system user — no login shell, no sudo rights. Run all commands as this user so config, cron job, and process are owned by it, not root.
+
+```bash
+# Interactive setup wizard
+sudo -u update-watcher update-watcher setup
+
+# Run checks (notifications suppressed)
+sudo -u update-watcher update-watcher run --notify=false
+
+# Schedule daily checks at 7:00 AM
+sudo -u update-watcher update-watcher install-cron
 ```
 
 ## Documentation
