@@ -1,8 +1,13 @@
 package config
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -264,9 +269,30 @@ func Save(cfg *Config, path string) error {
 	}
 
 	if err := os.WriteFile(path, data, 0600); err != nil {
+		if errors.Is(err, fs.ErrPermission) {
+			return saveViaSudo(data, path)
+		}
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
+	return nil
+}
+
+// saveViaSudo writes data to path using "sudo tee", prompting for a password if needed.
+func saveViaSudo(data []byte, path string) error {
+	sudoPath, err := exec.LookPath("sudo")
+	if err != nil {
+		return fmt.Errorf("failed to write config file (permission denied, sudo not found): %w", err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Writing config requires elevated privileges.\n")
+	cmd := exec.Command(sudoPath, "tee", path)
+	cmd.Stdin = bytes.NewReader(data)
+	cmd.Stdout = io.Discard // suppress tee's stdout echo
+	cmd.Stderr = os.Stderr  // sudo password prompt appears via /dev/tty
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to write config file via sudo: %w", err)
+	}
 	return nil
 }
 
