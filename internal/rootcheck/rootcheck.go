@@ -17,6 +17,20 @@ func IsRoot() bool {
 	return os.Getuid() == 0
 }
 
+// IsServiceUser returns true if the current process runs as the dedicated service user.
+func IsServiceUser() bool {
+	current, err := user.Current()
+	if err != nil {
+		return false
+	}
+	return current.Username == serviceUser
+}
+
+// ServiceUserName returns the name of the dedicated service user.
+func ServiceUserName() string {
+	return serviceUser
+}
+
 // ServiceUserExists checks if the dedicated "update-watcher" system user exists.
 func ServiceUserExists() bool {
 	_, err := user.Lookup(serviceUser)
@@ -67,7 +81,37 @@ func ReExecAsServiceUser() error {
 // Returns true if the caller should continue execution.
 // Returns false if the process was replaced (should not happen, but as safety).
 func WarnOrReExec(force bool) bool {
+	// Already running as the service user → nothing to do.
+	if IsServiceUser() {
+		return true
+	}
+
 	if !IsRoot() {
+		// Normal user (not root, not service user): offer re-exec if service user exists.
+		if ServiceUserExists() {
+			if force {
+				if err := ReExecAsServiceUser(); err != nil {
+					fmt.Fprintf(os.Stderr, "Warning: Failed to re-run as '%s': %v\n", serviceUser, err)
+					fmt.Fprintf(os.Stderr, "Continuing as current user...\n\n")
+				}
+				return true
+			}
+			if isInteractive() {
+				fmt.Fprintf(os.Stderr, "Note: A '%s' system user exists for server setup.\n", serviceUser)
+				fmt.Fprint(os.Stderr, "Re-run as '"+serviceUser+"' user? [Y/n] ")
+				reader := bufio.NewReader(os.Stdin)
+				answer, _ := reader.ReadString('\n')
+				answer = strings.TrimSpace(strings.ToLower(answer))
+				if answer == "" || answer == "y" || answer == "yes" {
+					if err := ReExecAsServiceUser(); err != nil {
+						fmt.Fprintf(os.Stderr, "Warning: Failed to re-run as '%s': %v\n", serviceUser, err)
+						fmt.Fprintf(os.Stderr, "Continuing as current user...\n\n")
+					}
+					return true
+				}
+				fmt.Fprintf(os.Stderr, "Continuing as current user. Config will be saved to home directory.\n\n")
+			}
+		}
 		return true
 	}
 

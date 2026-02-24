@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"strings"
 
 	"github.com/mahype/update-watcher/config"
+	"github.com/mahype/update-watcher/internal/rootcheck"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -52,7 +56,13 @@ func initConfig() {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			fmt.Fprintf(os.Stderr, "Error reading config: %s\n", err)
+			if errors.Is(err, fs.ErrPermission) && rootcheck.ServiceUserExists() {
+				fmt.Fprintf(os.Stderr, "Note: Config file not accessible (%s).\n", err)
+				fmt.Fprintf(os.Stderr, "Hint: Run as the service user: sudo -u %s update-watcher %s\n\n",
+					rootcheck.ServiceUserName(), strings.Join(os.Args[1:], " "))
+			} else {
+				fmt.Fprintf(os.Stderr, "Error reading config: %s\n", err)
+			}
 		}
 	}
 }
