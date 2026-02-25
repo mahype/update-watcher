@@ -1,6 +1,6 @@
 ---
 title: Notifiers
-description: "Update-Watcher supports 16 notification channels. Send server update alerts via Slack, Discord, Teams, Telegram, Email, push notifications, and more."
+description: "Update-Watcher supports 17 notification channels. Send server update alerts via Slack, Discord, Teams, Telegram, Email, push notifications, and more."
 weight: 40
 ---
 
@@ -28,6 +28,7 @@ You can enable any number of notifiers simultaneously. For example, you might se
 | [PagerDuty](pagerduty/) | Monitoring | Incident triggers via Events API v2 for security updates. |
 | [Pushbullet](pushbullet/) | Push | Cross-device push notifications via Pushbullet API. |
 | [Webhook](webhook/) | Generic | JSON payloads to any HTTP endpoint for custom integrations. |
+| [Update Wall](updatewall/) | Dashboard | Structured update reports to a self-hosted Update Wall dashboard. |
 
 ## Categories
 
@@ -76,6 +77,12 @@ Integrate server update alerts into your home automation setup.
 Send raw update data to any HTTP endpoint for custom processing, logging, or integration with systems not directly supported.
 
 - [Webhook](webhook/) -- JSON payloads with custom headers and authentication
+
+### Dashboard
+
+Send full structured update reports to a self-hosted dashboard for persistent history, filtering, and multi-server overview.
+
+- [Update Wall](updatewall/) -- Self-hosted update monitoring dashboard
 
 ## Send Policy
 
