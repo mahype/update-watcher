@@ -17,13 +17,15 @@ func init() {
 
 // OpenClawChecker checks for available OpenClaw updates.
 type OpenClawChecker struct {
-	channel string
+	channel    string
+	binaryPath string
 }
 
 // NewFromConfig creates an OpenClawChecker from a watcher configuration.
 func NewFromConfig(cfg config.WatcherConfig) (checker.Checker, error) {
 	return &OpenClawChecker{
-		channel: cfg.GetString("channel", ""),
+		channel:    cfg.GetString("channel", ""),
+		binaryPath: cfg.GetString("binary_path", "openclaw"),
 	}, nil
 }
 
@@ -38,7 +40,7 @@ func (o *OpenClawChecker) Check(ctx context.Context) (*checker.CheckResult, erro
 	// Get current version.
 	slog.Info("checking openclaw version")
 	currentVersion := ""
-	verResult, err := executil.Run("openclaw", "--version")
+	verResult, err := executil.Run(o.binaryPath, "--version")
 	if err == nil {
 		currentVersion = parseVersion(verResult.Stdout)
 	} else {
@@ -51,7 +53,7 @@ func (o *OpenClawChecker) Check(ctx context.Context) (*checker.CheckResult, erro
 	if o.channel != "" {
 		args = append(args, "--channel", o.channel)
 	}
-	statusResult, err := executil.RunWithTimeout(30*time.Second, "openclaw", args...)
+	statusResult, err := executil.RunWithTimeout(30*time.Second, o.binaryPath, args...)
 	if err != nil {
 		return result, fmt.Errorf("openclaw update status failed: %w", err)
 	}

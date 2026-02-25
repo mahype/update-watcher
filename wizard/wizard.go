@@ -576,9 +576,7 @@ func manageWatchers(cfg *config.Config) error {
 		if isToolAvailable("docker") {
 			options = append(options, huh.NewOption("Add Docker watcher", "add-docker"))
 		}
-		if isToolAvailable("openclaw") {
-			options = append(options, huh.NewOption("Add OpenClaw watcher", "add-openclaw"))
-		}
+		options = append(options, huh.NewOption("Add OpenClaw watcher", "add-openclaw"))
 		if runtime.GOOS == "linux" {
 			if _, err := os.Stat("/etc/os-release"); err == nil {
 				options = append(options, huh.NewOption("Add Distro Release watcher", "add-distro"))
@@ -913,33 +911,78 @@ func addFlatpakWatcher(cfg *config.Config) {
 }
 
 func addOpenClawWatcher(cfg *config.Config) {
+	detected := isToolAvailable("openclaw")
+	binaryPath := ""
 	channel := ""
 
-	// Pre-fill from existing
+	// Pre-fill from existing watcher config.
 	for _, w := range cfg.Watchers {
 		if w.Type == "openclaw" {
 			channel = w.GetString("channel", "")
+			binaryPath = w.GetString("binary_path", "")
 			break
 		}
 	}
 
-	huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Update channel").
-				Description("Which OpenClaw update channel to monitor").
-				Options(
-					huh.NewOption("Stable (default)", ""),
-					huh.NewOption("Beta", "beta"),
-					huh.NewOption("Dev", "dev"),
-				).
-				Value(&channel),
-		),
-	).Run()
+	useManualPath := !detected
+	if detected {
+		autoUse := binaryPath == "" // default: use auto if no manual path stored
+		huh.NewForm(
+			huh.NewGroup(
+				huh.NewConfirm().
+					Title("openclaw found in PATH. Use detected binary?").
+					Description("Select 'No' to specify a custom binary path instead.").
+					Value(&autoUse),
+			),
+		).Run()
+		if !autoUse {
+			useManualPath = true
+		}
+	}
+
+	if useManualPath {
+		if binaryPath == "" {
+			binaryPath = "openclaw"
+		}
+		huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Path to openclaw binary").
+					Description("Run 'which openclaw' to locate it, or try:\nfind /usr /opt /home -name openclaw 2>/dev/null | head -5").
+					Value(&binaryPath),
+				huh.NewSelect[string]().
+					Title("Update channel").
+					Description("Which OpenClaw update channel to monitor").
+					Options(
+						huh.NewOption("Stable (default)", ""),
+						huh.NewOption("Beta", "beta"),
+						huh.NewOption("Dev", "dev"),
+					).
+					Value(&channel),
+			),
+		).Run()
+	} else {
+		huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Update channel").
+					Description("Which OpenClaw update channel to monitor").
+					Options(
+						huh.NewOption("Stable (default)", ""),
+						huh.NewOption("Beta", "beta"),
+						huh.NewOption("Dev", "dev"),
+					).
+					Value(&channel),
+			),
+		).Run()
+	}
 
 	opts := map[string]interface{}{}
 	if channel != "" {
 		opts["channel"] = channel
+	}
+	if useManualPath && binaryPath != "" && binaryPath != "openclaw" {
+		opts["binary_path"] = binaryPath
 	}
 	cfg.AddWatcher(config.WatcherConfig{
 		Type:    "openclaw",
