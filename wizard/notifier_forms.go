@@ -16,6 +16,7 @@ var addFuncs = map[string]func(cfg *config.Config) error{
 	"discord":    addDiscord,
 	"telegram":   addTelegram,
 	"teams":      addTeams,
+	"updatewall": addUpdateWall,
 	"email":      addEmail,
 	"pushover":   addPushover,
 	"gotify":        addGotify,
@@ -36,6 +37,7 @@ var editFuncs = map[string]func(cfg *config.Config, existing *config.NotifierCon
 	"discord":    editDiscord,
 	"telegram":   editTelegram,
 	"teams":      editTeams,
+	"updatewall": editUpdateWall,
 	"email":      editEmail,
 	"pushover":   editPushover,
 	"gotify":        editGotify,
@@ -1599,5 +1601,82 @@ func editPushbullet(cfg *config.Config, existing *config.NotifierConfig) error {
 	existing.MinPriority = minPriority
 
 	fmt.Println("  Pushbullet settings updated.")
+	return nil
+}
+
+// --- Update Wall ---
+
+func addUpdateWall(cfg *config.Config) error {
+	var url, apiToken string
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Update Wall URL").
+				Description("API endpoint, e.g. https://your-domain.de/api/v1/report (required)").
+				Value(&url),
+			huh.NewInput().
+				Title("API Token").
+				Description("Bearer token created in the Update Wall admin area (required)").
+				EchoMode(huh.EchoModePassword).
+				Value(&apiToken),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	sendPolicy, minPriority, err := notifierPolicyForm("", "")
+	if err != nil {
+		return nil
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers, config.NotifierConfig{
+		Type:        "updatewall",
+		Enabled:     true,
+		SendPolicy:  sendPolicy,
+		MinPriority: minPriority,
+		Options: map[string]interface{}{
+			"url":       url,
+			"api_token": apiToken,
+		},
+	})
+
+	fmt.Println("  Update Wall notifier added.")
+	return nil
+}
+
+func editUpdateWall(cfg *config.Config, existing *config.NotifierConfig) error {
+	url := existing.Options.GetString("url", "")
+	apiToken := existing.Options.GetString("api_token", "")
+
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewInput().
+				Title("Update Wall URL").
+				Description("API endpoint, e.g. https://your-domain.de/api/v1/report (required)").
+				Value(&url),
+			huh.NewInput().
+				Title("API Token").
+				Description("Bearer token created in the Update Wall admin area (required)").
+				EchoMode(huh.EchoModePassword).
+				Value(&apiToken),
+		),
+	).Run()
+	if err != nil {
+		return nil
+	}
+
+	sendPolicy, minPriority, err := notifierPolicyForm(existing.SendPolicy, existing.MinPriority)
+	if err != nil {
+		return nil
+	}
+
+	existing.Options["url"] = url
+	existing.Options["api_token"] = apiToken
+	existing.SendPolicy = sendPolicy
+	existing.MinPriority = minPriority
+
+	fmt.Println("  Update Wall settings updated.")
 	return nil
 }

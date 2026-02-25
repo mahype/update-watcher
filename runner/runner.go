@@ -46,6 +46,7 @@ import (
 	_ "github.com/mahype/update-watcher/notifier/slack"
 	_ "github.com/mahype/update-watcher/notifier/teams"
 	_ "github.com/mahype/update-watcher/notifier/telegram"
+	_ "github.com/mahype/update-watcher/notifier/updatewall"
 	_ "github.com/mahype/update-watcher/notifier/webhook"
 )
 
