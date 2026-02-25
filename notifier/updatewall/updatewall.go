@@ -114,6 +114,18 @@ func (u *UpdateWallNotifier) Send(ctx context.Context, hostname string, results 
 		return fmt.Errorf("updatewall: server returned %d: %s", resp.StatusCode, string(respBody))
 	}
 
-	slog.Info("updatewall notification sent successfully")
+	var serverResp struct {
+		Status    string `json:"status"`
+		ReportID  int    `json:"report_id"`
+		MachineID int    `json:"machine_id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&serverResp); err != nil {
+		return fmt.Errorf("updatewall: failed to parse server response: %w", err)
+	}
+	if serverResp.Status != "ok" {
+		return fmt.Errorf("updatewall: server responded with status %q", serverResp.Status)
+	}
+
+	slog.Info("updatewall notification sent successfully", "report_id", serverResp.ReportID, "machine_id", serverResp.MachineID)
 	return nil
 }
