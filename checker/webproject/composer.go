@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"github.com/mahype/update-watcher/checker"
 )
@@ -143,16 +144,38 @@ func (c *ComposerManager) Audit(project ProjectConfig) ([]checker.Update, error)
 				highestPriority = p
 			}
 		}
+		// Best advisory: use the one with highest severity to extract fix version
+		fixVersion := ""
+		for _, adv := range advisories {
+			if v := extractFixVersion(adv.AffectedVersions); v != "" {
+				fixVersion = v
+				break
+			}
+		}
 		updates = append(updates, checker.Update{
-			Name:     pkgName,
-			Type:     checker.UpdateTypeSecurity,
-			Priority: highestPriority,
-			Source:   source,
+			Name:       pkgName,
+			NewVersion: fixVersion,
+			Type:       checker.UpdateTypeSecurity,
+			Priority:   highestPriority,
+			Source:     source,
 		})
 	}
 
 	slog.Info("composer audit complete", "project", project.Name, "vulnerabilities", len(updates))
 	return updates, nil
+}
+
+// extractFixVersion extracts the minimum fix version from a composer AffectedVersions
+// constraint string like ">=1.0,<1.5.2" or "<2.0.0". Returns empty string if no
+// upper bound is found.
+func extractFixVersion(affectedVersions string) string {
+	for _, part := range strings.Split(affectedVersions, ",") {
+		part = strings.TrimSpace(part)
+		if strings.HasPrefix(part, "<") && !strings.HasPrefix(part, "<=") {
+			return strings.TrimPrefix(part, "<")
+		}
+	}
+	return ""
 }
 
 func mapComposerSeverityToPriority(severity string) string {

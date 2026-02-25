@@ -211,8 +211,12 @@ func mergeAuditResults(existing []checker.Update, audit []checker.Update, projec
 		}
 	}
 
-	// Add audit-only entries not already in outdated list
+	// Add audit-only entries not already in outdated list; skip those without a fix version
 	for _, a := range auditMap {
+		if a.NewVersion == "" {
+			slog.Debug("skipping security entry without fix version", "package", a.Name, "source", a.Source)
+			continue
+		}
 		existing = append(existing, a)
 	}
 

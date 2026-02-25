@@ -68,12 +68,34 @@ func (n *NpmManager) CheckOutdated(project ProjectConfig) ([]checker.Update, err
 	return updates, nil
 }
 
+// npmFixAvailable represents the fixAvailable field from npm audit, which is either
+// false (no fix) or an object containing the fix version.
+type npmFixAvailable struct {
+	Version string
+}
+
+func (f *npmFixAvailable) UnmarshalJSON(data []byte) error {
+	// false = no fix available
+	var b bool
+	if err := json.Unmarshal(data, &b); err == nil {
+		return nil
+	}
+	// object = fix available with version info
+	var obj struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &obj); err == nil {
+		f.Version = obj.Version
+	}
+	return nil
+}
+
 // npmAuditVulnerability represents a vulnerability from `npm audit --json`.
 type npmAuditVulnerability struct {
-	Name         string      `json:"name"`
-	Severity     string      `json:"severity"`
-	Range        string      `json:"range"`
-	FixAvailable interface{} `json:"fixAvailable"`
+	Name         string          `json:"name"`
+	Severity     string          `json:"severity"`
+	Range        string          `json:"range"`
+	FixAvailable npmFixAvailable `json:"fixAvailable"`
 }
 
 type npmAuditOutput struct {
@@ -102,10 +124,11 @@ func (n *NpmManager) Audit(project ProjectConfig) ([]checker.Update, error) {
 	var updates []checker.Update
 	for name, vuln := range audit.Vulnerabilities {
 		updates = append(updates, checker.Update{
-			Name:     name,
-			Type:     checker.UpdateTypeSecurity,
-			Priority: mapSeverityToPriority(vuln.Severity),
-			Source:   source,
+			Name:       name,
+			NewVersion: vuln.FixAvailable.Version,
+			Type:       checker.UpdateTypeSecurity,
+			Priority:   mapSeverityToPriority(vuln.Severity),
+			Source:     source,
 		})
 	}
 
