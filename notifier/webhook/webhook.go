@@ -136,8 +136,10 @@ func (w *WebhookNotifier) Send(ctx context.Context, hostname string, results []*
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+	slog.Debug("webhook response", "status", resp.StatusCode, "headers", resp.Header, "body", string(respBody))
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("webhook: server returned %d: %s", resp.StatusCode, string(respBody))
 	}
 

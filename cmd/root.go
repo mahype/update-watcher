@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -19,6 +20,13 @@ var rootCmd = &cobra.Command{
 	Use:   "update-watcher",
 	Short: "Monitor servers for available updates",
 	Long:  "A modular tool that checks for system and application updates (APT, DNF, Pacman, Zypper, APK, Docker, WordPress, macOS) and sends notifications.",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if viper.GetBool("verbose") {
+			slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+				Level: slog.LevelDebug,
+			})))
+		}
+	},
 }
 
 // Execute runs the root command.

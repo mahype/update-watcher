@@ -109,8 +109,10 @@ func (u *UpdateWallNotifier) Send(ctx context.Context, hostname string, results 
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+	slog.Debug("updatewall response", "status", resp.StatusCode, "headers", resp.Header, "body", string(respBody))
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("updatewall: server returned %d: %s", resp.StatusCode, string(respBody))
 	}
 
@@ -119,7 +121,7 @@ func (u *UpdateWallNotifier) Send(ctx context.Context, hostname string, results 
 		ReportID  int    `json:"report_id"`
 		MachineID int    `json:"machine_id"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&serverResp); err != nil {
+	if err := json.Unmarshal(respBody, &serverResp); err != nil {
 		return fmt.Errorf("updatewall: failed to parse server response: %w", err)
 	}
 	if serverResp.Status != "ok" {

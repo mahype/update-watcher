@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -42,8 +43,10 @@ func PostJSONWithHeaders(url string, payload interface{}, headers map[string]str
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+	slog.Debug("http response", "url", url, "status", resp.StatusCode, "headers", resp.Header, "body", string(respBody))
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
 	}
 
@@ -60,8 +63,10 @@ func DoRequest(req *http.Request) error {
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+	slog.Debug("http response", "url", req.URL.String(), "status", resp.StatusCode, "headers", resp.Header, "body", string(respBody))
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(respBody))
 	}
 
