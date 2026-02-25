@@ -60,10 +60,11 @@ type payload struct {
 }
 
 type checkerEntry struct {
-	Name    string           `json:"name"`
-	Summary string           `json:"summary"`
-	Error   string           `json:"error,omitempty"`
-	Updates []checker.Update `json:"updates,omitempty"`
+	Name       string           `json:"name"`
+	Summary    string           `json:"summary"`
+	Error      string           `json:"error,omitempty"`
+	UpdateHint string           `json:"update_hint,omitempty"`
+	Updates    []checker.Update `json:"updates,omitempty"`
 }
 
 func (u *UpdateWallNotifier) Send(ctx context.Context, hostname string, results []*checker.CheckResult) error {
@@ -79,10 +80,11 @@ func (u *UpdateWallNotifier) Send(ctx context.Context, hostname string, results 
 
 	for _, r := range results {
 		p.Checkers = append(p.Checkers, checkerEntry{
-			Name:    r.CheckerName,
-			Summary: r.Summary,
-			Error:   r.Error,
-			Updates: r.Updates,
+			Name:       r.CheckerName,
+			Summary:    r.Summary,
+			Error:      r.Error,
+			UpdateHint: formatting.UpdateCommandForResult(r.CheckerName, r.Updates),
+			Updates:    r.Updates,
 		})
 	}
 
