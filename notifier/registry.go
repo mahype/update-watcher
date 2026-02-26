@@ -15,6 +15,7 @@ type NotifierMeta struct {
 	Type        string
 	DisplayName string
 	Description string
+	AlwaysSend  bool // bypass send policy, always call Send()
 }
 
 var registry = map[string]FactoryFunc{}

@@ -22,6 +22,7 @@ func init() {
 		Type:        "updatewall",
 		DisplayName: "Update Wall",
 		Description: "Send update reports to an Update Wall dashboard",
+		AlwaysSend:  true,
 	})
 }
 

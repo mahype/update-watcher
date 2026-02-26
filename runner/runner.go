@@ -204,8 +204,12 @@ func (r *Runner) notify(ctx context.Context, result *RunResult) error {
 		// Apply priority filtering (creates copies, does not mutate originals).
 		filteredResults, filteredTotal := checker.FilterResultsByPriority(result.Results, effectiveMinPriority)
 
-		// Apply send policy (unless --notify=true overrides).
-		if r.notifyOpt == nil {
+		// Check if this notifier type always sends (e.g. Update Wall dashboards).
+		meta, hasMeta := notifier.GetMeta(nCfg.Type)
+		alwaysSend := hasMeta && meta.AlwaysSend
+
+		// Apply send policy (unless --notify=true overrides or notifier always sends).
+		if r.notifyOpt == nil && !alwaysSend {
 			if effectivePolicy == "only-on-updates" && filteredTotal == 0 && len(result.Errors) == 0 {
 				slog.Info("skipping notifier (no matching updates)",
 					"type", nCfg.Type,
