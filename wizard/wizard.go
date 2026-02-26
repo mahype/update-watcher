@@ -586,6 +586,39 @@ func manageWatchers(cfg *config.Config) error {
 		options = append(options, huh.NewOption("Add Web Project", "add-webproject"))
 		// WordPress is always available (environment detection handles tool requirements).
 		options = append(options, huh.NewOption("Add WordPress site", "add-wordpress"))
+		// Edit options for configured watchers
+		for i, w := range cfg.Watchers {
+			switch w.Type {
+			case "wordpress":
+				for j, s := range w.GetMapSlice("sites") {
+					name, _ := s["name"].(string)
+					if name == "" {
+						name = "(unnamed)"
+					}
+					options = append(options,
+						huh.NewOption(fmt.Sprintf("Edit WordPress: %s", name), fmt.Sprintf("edit-wp:%d:%d", i, j)),
+					)
+				}
+			case "webproject":
+				for j, p := range w.GetMapSlice("projects") {
+					name, _ := p["name"].(string)
+					if name == "" {
+						name = "(unnamed)"
+					}
+					options = append(options,
+						huh.NewOption(fmt.Sprintf("Edit Web Project: %s", name), fmt.Sprintf("edit-webproject:%d:%d", i, j)),
+					)
+				}
+			case "snap", "npm", "flatpak":
+				// No configurable options
+			default:
+				if _, ok := editWatcherFuncs[w.Type]; ok {
+					options = append(options,
+						huh.NewOption(fmt.Sprintf("Edit %s", watcherDisplayName(w.Type)), fmt.Sprintf("edit:%d", i)),
+					)
+				}
+			}
+		}
 		if len(cfg.Watchers) > 0 {
 			options = append(options, huh.NewOption("Remove a watcher", "remove"))
 		}
@@ -604,41 +637,57 @@ func manageWatchers(cfg *config.Config) error {
 			return nil
 		}
 
-		switch choice {
-		case "add-apt":
-			addAptWatcher(cfg)
-		case "add-dnf":
-			addDnfWatcher(cfg)
-		case "add-pacman":
-			addPacmanWatcher(cfg)
-		case "add-zypper":
-			addZypperWatcher(cfg)
-		case "add-apk":
-			addApkWatcher(cfg)
-		case "add-macos":
-			addMacOSWatcher(cfg)
-		case "add-homebrew":
-			addHomebrewWatcher(cfg)
-		case "add-snap":
-			addSnapWatcher(cfg)
-		case "add-npm":
-			addNpmWatcher(cfg)
-		case "add-flatpak":
-			addFlatpakWatcher(cfg)
-		case "add-docker":
-			addDockerWatcher(cfg)
-		case "add-openclaw":
-			addOpenClawWatcher(cfg)
-		case "add-distro":
-			addDistroWatcher(cfg)
-		case "add-wordpress":
-			addWordPressSite(cfg)
-		case "add-webproject":
-			addWebProject(cfg)
-		case "remove":
-			removeWatcher(cfg)
-		case "back":
+		switch {
+		case choice == "back":
 			return nil
+		case choice == "remove":
+			removeWatcher(cfg)
+		case strings.HasPrefix(choice, "edit:"):
+			var idx int
+			fmt.Sscanf(choice, "edit:%d", &idx)
+			if idx >= 0 && idx < len(cfg.Watchers) {
+				if fn, ok := editWatcherFuncs[cfg.Watchers[idx].Type]; ok {
+					fn(cfg, &cfg.Watchers[idx])
+				}
+			}
+		case strings.HasPrefix(choice, "edit-wp:"):
+			var wi, si int
+			fmt.Sscanf(choice, "edit-wp:%d:%d", &wi, &si)
+			editWordPressSite(cfg, wi, si)
+		case strings.HasPrefix(choice, "edit-webproject:"):
+			var wi, pi int
+			fmt.Sscanf(choice, "edit-webproject:%d:%d", &wi, &pi)
+			editWebProjectEntry(cfg, wi, pi)
+		case choice == "add-apt":
+			addAptWatcher(cfg)
+		case choice == "add-dnf":
+			addDnfWatcher(cfg)
+		case choice == "add-pacman":
+			addPacmanWatcher(cfg)
+		case choice == "add-zypper":
+			addZypperWatcher(cfg)
+		case choice == "add-apk":
+			addApkWatcher(cfg)
+		case choice == "add-macos":
+			addMacOSWatcher(cfg)
+		case choice == "add-homebrew":
+			addHomebrewWatcher(cfg)
+		case choice == "add-snap":
+			addSnapWatcher(cfg)
+		case choice == "add-npm":
+			addNpmWatcher(cfg)
+		case choice == "add-flatpak":
+			addFlatpakWatcher(cfg)
+		case choice == "add-docker":
+			addDockerWatcher(cfg)
+		case choice == "add-openclaw":
+			addOpenClawWatcher(cfg)
+		case choice == "add-distro":
+			addDistroWatcher(cfg)
+		case choice == "add-wordpress":
+			addWordPressSite(cfg)
+		case choice == "add-webproject":
+			addWebProject(cfg)
 		}
 	}
 }
