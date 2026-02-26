@@ -244,7 +244,22 @@ if [ "$OS" = "linux" ]; then
             fi
         fi
 
-        # 6. Cron job
+        # 6. Web server group (for WordPress/webproject checkers)
+        WEB_GROUP=""
+        for g in www-data nginx apache http; do
+            if getent group "$g" &>/dev/null; then
+                WEB_GROUP="$g"
+                break
+            fi
+        done
+        if [ -n "$WEB_GROUP" ]; then
+            if [ "$SERVER_MODE" = "yes" ] || ask "Add '${SERVICE_USER}' to '${WEB_GROUP}' group (for WordPress/web project access)?" "y"; then
+                run_root usermod -aG "$WEB_GROUP" "$SERVICE_USER"
+                info "User '${SERVICE_USER}' added to '${WEB_GROUP}' group."
+            fi
+        fi
+
+        # 7. Cron job
         if [ "$SERVER_MODE" = "yes" ] || ask "Install daily cron job (7:00 AM)?" "y"; then
             (run_root crontab -u "$SERVICE_USER" -l 2>/dev/null | grep -v "${BINARY_NAME}"; \
              echo "0 7 * * * ${INSTALL_DIR}/${BINARY_NAME} run --quiet") | \

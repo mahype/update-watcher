@@ -95,7 +95,7 @@ var watchWordPressCmd = &cobra.Command{
 func init() {
 	watchWordPressCmd.Flags().String("path", "", "path to WordPress installation (required)")
 	watchWordPressCmd.Flags().String("name", "", "human-readable site name (defaults to path)")
-	watchWordPressCmd.Flags().String("run-as", "www-data", "OS user to run WP-CLI as (native only)")
+	watchWordPressCmd.Flags().String("run-as", "", "OS user to run WP-CLI as via sudo (native only)")
 	watchWordPressCmd.Flags().String("env", "auto", "environment type: auto, native, ddev, lando, wp-env, docker-compose, bedrock, local, mamp, xampp, laragon, valet")
 	watchWordPressCmd.Flags().Bool("no-core", false, "skip core update check")
 	watchWordPressCmd.Flags().Bool("no-plugins", false, "skip plugin update check")

@@ -40,8 +40,8 @@ func TestParseSites(t *testing.T) {
 	if sites[1].Name != "/var/www/html/shop" {
 		t.Errorf("expected name to fall back to path, got %q", sites[1].Name)
 	}
-	// Default run_as
-	if sites[1].RunAs != "www-data" {
-		t.Errorf("expected default run_as 'www-data', got %q", sites[1].RunAs)
+	// No default run_as (empty means run as current user, no sudo)
+	if sites[1].RunAs != "" {
+		t.Errorf("expected empty run_as, got %q", sites[1].RunAs)
 	}
 }

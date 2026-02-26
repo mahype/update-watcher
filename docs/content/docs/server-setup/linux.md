@@ -163,11 +163,15 @@ On some distributions, the web server group may be `nginx`, `apache`, or `http` 
 stat -c '%G' /var/www
 ```
 
-Ensure the project directories are group-readable:
+Ensure the project directories and `wp-config.php` are group-readable:
 
 ```bash {filename="Terminal"}
 sudo chmod -R g+r /var/www/mysite
 ```
+
+{{< callout type="info" >}}
+Group membership is sufficient for WordPress and web project checkers — no sudo or sudoers configuration is needed. The checkers only perform read-only operations (checking for updates).
+{{< /callout >}}
 
 ## Step 7: Cron Scheduling
 

@@ -53,7 +53,7 @@ Each entry in the `sites` list supports the following properties:
 |----------|------|---------|-------------|
 | `name` | string | (required) | A human-readable name for the site, used in notifications. |
 | `path` | string | (required) | Absolute path to the WordPress installation or project directory. |
-| `run_as` | string | `""` | Run WP-CLI as a specific user (e.g., `www-data`). Useful when Update-Watcher runs as root but WordPress files are owned by another user. |
+| `run_as` | string | `""` | Optional. Run WP-CLI as a specific user via sudo (e.g., `www-data`). Only needed when Update-Watcher runs as root. For dedicated service users, prefer group membership instead (see [Linux Server Setup](../../server-setup/linux/)). |
 | `environment` | string | `""` | Override the auto-detected environment. Leave empty for auto-detection. |
 
 ## YAML Configuration Example
@@ -180,7 +180,9 @@ The checker supports 11 environments: Native, ddev, Lando, wp-env, Docker Compos
 ## Tips
 
 {{< callout type="warning" >}}
-**Running as Root:** If Update-Watcher runs as root (e.g., from a system cron job) but your WordPress files are owned by `www-data`, use the `run_as` option to avoid file permission issues:
+**File Permissions:** The user running Update-Watcher needs read access to `wp-config.php` and the WordPress directory. The recommended setup is to add the `update-watcher` service user to the web server group (e.g., `www-data`). See [Linux Server Setup](../../server-setup/linux/) for details.
+
+If Update-Watcher runs as root instead, use `run_as` to execute WP-CLI as the file owner:
 
 ```yaml {filename="config.yaml"}
 sites:

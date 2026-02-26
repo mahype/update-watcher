@@ -50,7 +50,6 @@ func parseSites(raw []map[string]interface{}) []SiteConfig {
 	var sites []SiteConfig
 	for _, m := range raw {
 		sc := SiteConfig{
-			RunAs:       "www-data",
 			Environment: EnvAuto,
 		}
 		if v, ok := m["name"].(string); ok {

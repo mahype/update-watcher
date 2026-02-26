@@ -353,19 +353,7 @@ func editWordPressSite(cfg *config.Config, watcherIdx, siteIdx int) error {
 
 	selectedEnv := wordpress.Environment(envStr)
 
-	if selectedEnv.NeedsRunAs() {
-		if runAs == "" {
-			runAs = "www-data"
-		}
-		huh.NewForm(
-			huh.NewGroup(
-				huh.NewInput().
-					Title("Run WP-CLI as user").
-					Description("OS user for sudo -u (only needed for native installs)").
-					Value(&runAs),
-			),
-		).Run()
-	} else {
+	if !selectedEnv.NeedsRunAs() {
 		runAs = ""
 	}
 
@@ -457,18 +445,9 @@ func editWebProjectEntry(cfg *config.Config, watcherIdx, projectIdx int) error {
 
 	selectedEnv := webproject.Environment(envStr)
 
-	// Run-as user for native environments
+	// Run-as user: only kept if already configured, cleared for non-native envs
 	runAs, _ := project["run_as"].(string)
-	if selectedEnv.NeedsRunAs() {
-		huh.NewForm(
-			huh.NewGroup(
-				huh.NewInput().
-					Title("Run as user").
-					Description("OS user for sudo -u (leave empty to skip)").
-					Value(&runAs),
-			),
-		).Run()
-	} else {
+	if !selectedEnv.NeedsRunAs() {
 		runAs = ""
 	}
 

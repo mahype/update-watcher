@@ -61,9 +61,10 @@ func (w *WPCLIRunner) exec(wpArgs []string) (*executil.Result, error) {
 		return executil.RunInDirWithEnv(spec.WorkDir, spec.Env, spec.Command, allArgs...)
 	}
 
-	// Native environment with run_as: use sudo -u
+	// Native environment with run_as: use sudo -u (no env vars needed,
+	// PHP warnings are filtered by filterStderr/stripNonJSON).
 	if spec.NeedsRunAs && w.RunAs != "" {
-		return executil.RunAsUserWithEnv(spec.Env, w.RunAs, spec.Command, allArgs...)
+		return executil.RunAsUser(w.RunAs, spec.Command, allArgs...)
 	}
 
 	// Host-based environments (MAMP, XAMPP, Valet, Bedrock, etc.)
