@@ -189,6 +189,7 @@ const (
 	menuNotifications    = "notifications"
 	menuSettings         = "settings"
 	menuCron             = "cron"
+	menuTests            = "tests"
 	menuTestRun          = "test"
 	menuTestNotification = "test-notification"
 	menuSaveExit         = "save"
@@ -248,10 +249,8 @@ func Run(cfg *config.Config) (*config.Config, error) {
 			if err := manageCron(cfg); err != nil {
 				return cfg, err
 			}
-		case menuTestRun:
-			runTestCheck(cfg)
-		case menuTestNotification:
-			sendTestNotification(cfg)
+		case menuTests:
+			manageTests(cfg)
 		case menuSaveExit:
 			return cfg, nil
 		}
@@ -335,17 +334,47 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 	opts := []huh.Option[string]{
 		huh.NewOption(watcherLabel, menuWatchers),
 		huh.NewOption(notifLabel, menuNotifications),
-		huh.NewOption(settingsLabel, menuSettings),
 		huh.NewOption(cronLabel, menuCron),
-		huh.NewOption("Run Test Check", menuTestRun),
-	}
-
-	if len(cfg.Notifiers) > 0 {
-		opts = append(opts, huh.NewOption("Send Test Notification", menuTestNotification))
+		huh.NewOption(settingsLabel, menuSettings),
+		huh.NewOption("Tests", menuTests),
 	}
 
 	opts = append(opts, huh.NewOption("Save & Exit", menuSaveExit))
 	return opts
+}
+
+func manageTests(cfg *config.Config) {
+	for {
+		opts := []huh.Option[string]{
+			huh.NewOption("Run Test Check", menuTestRun),
+		}
+		if len(cfg.Notifiers) > 0 {
+			opts = append(opts, huh.NewOption("Send Test Notification", menuTestNotification))
+		}
+		opts = append(opts, huh.NewOption("← Back", "back"))
+
+		var choice string
+		err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title("Tests").
+					Options(opts...).
+					Value(&choice),
+			),
+		).Run()
+		if err != nil {
+			return
+		}
+
+		switch choice {
+		case menuTestRun:
+			runTestCheck(cfg)
+		case menuTestNotification:
+			sendTestNotification(cfg)
+		case "back":
+			return
+		}
+	}
 }
 
 func printStatus(cfg *config.Config, updateAvailable *selfupdate.Release) {
