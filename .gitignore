@@ -10,3 +10,4 @@ coverage.out
 config.yaml
 config.yml
 *.secret.yaml
+.serena/
