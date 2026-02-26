@@ -24,6 +24,14 @@ import (
 	"github.com/mahype/update-watcher/runner"
 )
 
+// capitalizeFirst returns the string with the first letter uppercased.
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
 // isToolAvailable checks if a command-line tool is on the system PATH.
 func isToolAvailable(name string) bool {
 	_, err := exec.LookPath(name)
@@ -177,13 +185,12 @@ func runTestCheck(cfg *config.Config) {
 }
 
 const (
-	menuWatchers      = "watchers"
-	menuNotifications = "notifications"
-	menuSettings      = "settings"
-	menuCron          = "cron"
+	menuWatchers         = "watchers"
+	menuNotifications    = "notifications"
+	menuSettings         = "settings"
+	menuCron             = "cron"
 	menuTestRun          = "test"
 	menuTestNotification = "test-notification"
-	menuSelfUpdate       = "self-update"
 	menuSaveExit         = "save"
 )
 
@@ -197,8 +204,18 @@ func Run(cfg *config.Config) (*config.Config, error) {
 		cfg.Hostname = hostname.Get()
 	}
 
+	// Check for updates once at startup (non-blocking on error).
+	var updateAvailable *selfupdate.Release
+	if version.Version != "dev" {
+		if release, err := selfupdate.LatestRelease(); err == nil {
+			if selfupdate.NeedsUpdate(version.Version, release) {
+				updateAvailable = release
+			}
+		}
+	}
+
 	for {
-		printStatus(cfg)
+		printStatus(cfg, updateAvailable)
 
 		var choice string
 		err := huh.NewForm(
@@ -235,10 +252,6 @@ func Run(cfg *config.Config) (*config.Config, error) {
 			runTestCheck(cfg)
 		case menuTestNotification:
 			sendTestNotification(cfg)
-		case menuSelfUpdate:
-			if err := runSelfUpdate(); err != nil {
-				return cfg, err
-			}
 		case menuSaveExit:
 			return cfg, nil
 		}
@@ -248,59 +261,9 @@ func Run(cfg *config.Config) (*config.Config, error) {
 // ErrTestRun signals that the user wants to run a test check.
 var errTestRun = fmt.Errorf("test-run-requested")
 
-// ErrSelfUpdated signals that a self-update was performed and the binary should be re-executed.
-var ErrSelfUpdated = fmt.Errorf("self-updated")
-
 // IsTestRunRequested checks if the wizard exit was a test run request.
 func IsTestRunRequested(err error) bool {
 	return err == errTestRun
-}
-
-func runSelfUpdate() error {
-	fmt.Printf("\n  Checking for updates (current: %s)...\n", version.Version)
-
-	release, err := selfupdate.LatestRelease()
-	if err != nil {
-		fmt.Printf("  Error checking for updates: %s\n", err)
-		fmt.Println()
-		fmt.Print("  Press Enter to continue...")
-		fmt.Scanln()
-		return nil
-	}
-
-	if !selfupdate.NeedsUpdate(version.Version, release) {
-		fmt.Printf("  Already up to date (%s)\n", version.Version)
-		fmt.Println()
-		fmt.Print("  Press Enter to continue...")
-		fmt.Scanln()
-		return nil
-	}
-
-	fmt.Printf("  New version available: %s\n\n", release.TagName)
-
-	var confirm bool
-	err = huh.NewForm(
-		huh.NewGroup(
-			huh.NewConfirm().
-				Title(fmt.Sprintf("Update to %s?", release.TagName)).
-				Value(&confirm),
-		),
-	).Run()
-	if err != nil || !confirm {
-		return nil
-	}
-
-	fmt.Printf("  Downloading %s...\n", release.TagName)
-	if err := selfupdate.DownloadAndReplace(release); err != nil {
-		fmt.Printf("  Update failed: %s\n", err)
-		fmt.Println()
-		fmt.Print("  Press Enter to continue...")
-		fmt.Scanln()
-		return nil
-	}
-
-	fmt.Printf("  Successfully updated to %s!\n", release.TagName)
-	return ErrSelfUpdated
 }
 
 // formatCronSchedule converts a cron expression to a human-readable string.
@@ -333,7 +296,7 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 	}
 
 	// Notifications label
-	notifLabel := "Configure Notifications"
+	notifLabel := "Manage Notifications"
 	if len(cfg.Notifiers) == 0 {
 		notifLabel += " (none configured)"
 	} else {
@@ -381,22 +344,19 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 		opts = append(opts, huh.NewOption("Send Test Notification", menuTestNotification))
 	}
 
-	selfUpdateLabel := "Self-Update"
-	if version.Version != "dev" {
-		selfUpdateLabel += fmt.Sprintf(" (%s)", version.Version)
-	}
-	opts = append(opts, huh.NewOption(selfUpdateLabel, menuSelfUpdate))
-
 	opts = append(opts, huh.NewOption("Save & Exit", menuSaveExit))
 	return opts
 }
 
-func printStatus(cfg *config.Config) {
+func printStatus(cfg *config.Config, updateAvailable *selfupdate.Release) {
 	fmt.Println()
 	if version.Version != "dev" {
 		fmt.Printf("=== update-watcher setup (%s) ===\n", version.Version)
 	} else {
 		fmt.Println("=== update-watcher setup ===")
+	}
+	if updateAvailable != nil {
+		fmt.Printf("\033[31m  New version %s available! Run: update-watcher self-update\033[0m\n", updateAvailable.TagName)
 	}
 	fmt.Println()
 	fmt.Printf("  Hostname:      %s\n", cfg.Hostname)
@@ -463,166 +423,71 @@ func printStatus(cfg *config.Config) {
 
 // --- Watchers sub-menu ---
 
+// watcherSummaryLabel returns a compact label for a watcher in the Level-1 menu.
+func watcherSummaryLabel(w config.WatcherConfig) string {
+	name := watcherDisplayName(w.Type)
+	var details []string
+
+	if !w.Enabled {
+		details = append(details, "disabled")
+	}
+
+	switch w.Type {
+	case "wordpress":
+		sites := w.GetMapSlice("sites")
+		return fmt.Sprintf("%s (%d sites)", name, len(sites))
+	case "webproject":
+		projects := w.GetMapSlice("projects")
+		return fmt.Sprintf("%s (%d projects)", name, len(projects))
+	case "apt":
+		if w.GetBool("security_only", false) {
+			details = append(details, "security-only")
+		}
+		if w.GetBool("hide_phased", false) {
+			details = append(details, "hide phased")
+		}
+	case "dnf", "zypper":
+		if w.GetBool("security_only", false) {
+			details = append(details, "security-only")
+		}
+	case "macos":
+		if w.GetBool("security_only", false) {
+			details = append(details, "security-only")
+		}
+	case "homebrew":
+		if w.GetBool("include_casks", true) {
+			details = append(details, "with casks")
+		}
+	case "docker":
+		c := w.GetString("containers", "all")
+		details = append(details, c)
+	case "openclaw":
+		if ch := w.GetString("channel", ""); ch != "" {
+			details = append(details, ch)
+		}
+	case "distro":
+		if w.GetBool("lts_only", true) {
+			details = append(details, "LTS only")
+		}
+	}
+
+	if len(details) > 0 {
+		return fmt.Sprintf("%s (%s)", name, strings.Join(details, ", "))
+	}
+	return name
+}
+
 func manageWatchers(cfg *config.Config) error {
 	for {
-		fmt.Println()
-		fmt.Println("  Configured watchers:")
-		if len(cfg.Watchers) == 0 {
-			fmt.Println("    (none)")
-		}
-		for _, w := range cfg.Watchers {
-			status := "enabled"
-			if !w.Enabled {
-				status = "disabled"
-			}
-			switch w.Type {
-			case "apt":
-				secOnly := w.GetBool("security_only", false)
-				hidePhased := w.GetBool("hide_phased", false)
-				fmt.Printf("    [✓] APT (%s, security_only: %v, hide_phased: %v)\n", status, secOnly, hidePhased)
-			case "dnf":
-				secOnly := w.GetBool("security_only", false)
-				fmt.Printf("    [✓] DNF (%s, security_only: %v)\n", status, secOnly)
-			case "pacman":
-				fmt.Printf("    [✓] Pacman (%s)\n", status)
-			case "zypper":
-				secOnly := w.GetBool("security_only", false)
-				fmt.Printf("    [✓] Zypper (%s, security_only: %v)\n", status, secOnly)
-			case "apk":
-				fmt.Printf("    [✓] APK (%s)\n", status)
-			case "macos":
-				secOnly := w.GetBool("security_only", false)
-				fmt.Printf("    [✓] macOS (%s, security_only: %v)\n", status, secOnly)
-			case "docker":
-				containers := w.GetString("containers", "all")
-				fmt.Printf("    [✓] Docker (%s, containers: %s)\n", status, containers)
-			case "wordpress":
-				sites := w.GetMapSlice("sites")
-				for _, s := range sites {
-					name, _ := s["name"].(string)
-					path, _ := s["path"].(string)
-					env, _ := s["environment"].(string)
-					if env == "" || env == "auto" {
-						env = "native"
-					}
-					fmt.Printf("    [✓] WordPress: %q (%s, env: %s)\n", name, path, env)
-				}
-			case "webproject":
-				projects := w.GetMapSlice("projects")
-				for _, p := range projects {
-					name, _ := p["name"].(string)
-					path, _ := p["path"].(string)
-					env, _ := p["environment"].(string)
-					if env == "" || env == "auto" {
-						env = "native"
-					}
-					fmt.Printf("    [✓] Web Project: %q (%s, env: %s)\n", name, path, env)
-				}
-			case "homebrew":
-				casks := w.GetBool("include_casks", true)
-				fmt.Printf("    [✓] Homebrew (%s, casks: %v)\n", status, casks)
-			case "snap":
-				fmt.Printf("    [✓] Snap (%s)\n", status)
-			case "npm":
-				fmt.Printf("    [✓] npm global (%s)\n", status)
-			case "flatpak":
-				fmt.Printf("    [✓] Flatpak (%s)\n", status)
-			case "openclaw":
-				ch := w.GetString("channel", "")
-				if ch != "" {
-					fmt.Printf("    [✓] OpenClaw (%s, channel: %s)\n", status, ch)
-				} else {
-					fmt.Printf("    [✓] OpenClaw (%s)\n", status)
-				}
-			case "distro":
-				ltsOnly := w.GetBool("lts_only", true)
-				fmt.Printf("    [✓] Distro Release (%s, lts_only: %v)\n", status, ltsOnly)
-			}
-		}
-		fmt.Println()
-
+		// Level 1: List configured watchers
 		var options []huh.Option[string]
-		// Only show options for tools that are available on this system.
-		if runtime.GOOS == "linux" && isToolAvailable("apt") {
-			options = append(options, huh.NewOption("Add APT watcher", "add-apt"))
-		}
-		if runtime.GOOS == "linux" && isToolAvailable("dnf") {
-			options = append(options, huh.NewOption("Add DNF watcher", "add-dnf"))
-		}
-		if runtime.GOOS == "linux" && isToolAvailable("pacman") {
-			options = append(options, huh.NewOption("Add Pacman watcher", "add-pacman"))
-		}
-		if runtime.GOOS == "linux" && isToolAvailable("zypper") {
-			options = append(options, huh.NewOption("Add Zypper watcher", "add-zypper"))
-		}
-		if runtime.GOOS == "linux" && isToolAvailable("apk") {
-			options = append(options, huh.NewOption("Add APK watcher", "add-apk"))
-		}
-		if runtime.GOOS == "darwin" && isToolAvailable("softwareupdate") {
-			options = append(options, huh.NewOption("Add macOS watcher", "add-macos"))
-		}
-		if isToolAvailable("brew") {
-			options = append(options, huh.NewOption("Add Homebrew watcher", "add-homebrew"))
-		}
-		if isToolAvailable("snap") {
-			options = append(options, huh.NewOption("Add Snap watcher", "add-snap"))
-		}
-		if isToolAvailable("npm") {
-			options = append(options, huh.NewOption("Add npm global watcher", "add-npm"))
-		}
-		if isToolAvailable("flatpak") {
-			options = append(options, huh.NewOption("Add Flatpak watcher", "add-flatpak"))
-		}
-		if isToolAvailable("docker") {
-			options = append(options, huh.NewOption("Add Docker watcher", "add-docker"))
-		}
-		options = append(options, huh.NewOption("Add OpenClaw watcher", "add-openclaw"))
-		if runtime.GOOS == "linux" {
-			if _, err := os.Stat("/etc/os-release"); err == nil {
-				options = append(options, huh.NewOption("Add Distro Release watcher", "add-distro"))
-			}
-		}
-		// Web projects are always available.
-		options = append(options, huh.NewOption("Add Web Project", "add-webproject"))
-		// WordPress is always available (environment detection handles tool requirements).
-		options = append(options, huh.NewOption("Add WordPress site", "add-wordpress"))
-		// Edit options for configured watchers
 		for i, w := range cfg.Watchers {
-			switch w.Type {
-			case "wordpress":
-				for j, s := range w.GetMapSlice("sites") {
-					name, _ := s["name"].(string)
-					if name == "" {
-						name = "(unnamed)"
-					}
-					options = append(options,
-						huh.NewOption(fmt.Sprintf("Edit WordPress: %s", name), fmt.Sprintf("edit-wp:%d:%d", i, j)),
-					)
-				}
-			case "webproject":
-				for j, p := range w.GetMapSlice("projects") {
-					name, _ := p["name"].(string)
-					if name == "" {
-						name = "(unnamed)"
-					}
-					options = append(options,
-						huh.NewOption(fmt.Sprintf("Edit Web Project: %s", name), fmt.Sprintf("edit-webproject:%d:%d", i, j)),
-					)
-				}
-			case "snap", "npm", "flatpak":
-				// No configurable options
-			default:
-				if _, ok := editWatcherFuncs[w.Type]; ok {
-					options = append(options,
-						huh.NewOption(fmt.Sprintf("Edit %s", watcherDisplayName(w.Type)), fmt.Sprintf("edit:%d", i)),
-					)
-				}
-			}
+			options = append(options, huh.NewOption(watcherSummaryLabel(w), fmt.Sprintf("select:%d", i)))
 		}
-		if len(cfg.Watchers) > 0 {
-			options = append(options, huh.NewOption("Remove a watcher", "remove"))
-		}
-		options = append(options, huh.NewOption("Back to main menu", "back"))
+		options = append(options,
+			huh.NewOption("+ Add new watcher", "add"),
+			huh.NewOption("← Back to main menu", "back"),
+		)
 
 		var choice string
 		err := huh.NewForm(
@@ -640,55 +505,318 @@ func manageWatchers(cfg *config.Config) error {
 		switch {
 		case choice == "back":
 			return nil
-		case choice == "remove":
-			removeWatcher(cfg)
-		case strings.HasPrefix(choice, "edit:"):
+		case choice == "add":
+			addWatcherMenu(cfg)
+		case strings.HasPrefix(choice, "select:"):
 			var idx int
-			fmt.Sscanf(choice, "edit:%d", &idx)
+			fmt.Sscanf(choice, "select:%d", &idx)
 			if idx >= 0 && idx < len(cfg.Watchers) {
-				if fn, ok := editWatcherFuncs[cfg.Watchers[idx].Type]; ok {
-					fn(cfg, &cfg.Watchers[idx])
+				w := cfg.Watchers[idx]
+				switch w.Type {
+				case "wordpress":
+					watcherSitesMenu(cfg, idx, "sites", "WordPress Sites", "site")
+				case "webproject":
+					watcherSitesMenu(cfg, idx, "projects", "Web Projects", "project")
+				default:
+					watcherActionMenu(cfg, idx)
 				}
 			}
-		case strings.HasPrefix(choice, "edit-wp:"):
-			var wi, si int
-			fmt.Sscanf(choice, "edit-wp:%d:%d", &wi, &si)
-			editWordPressSite(cfg, wi, si)
-		case strings.HasPrefix(choice, "edit-webproject:"):
-			var wi, pi int
-			fmt.Sscanf(choice, "edit-webproject:%d:%d", &wi, &pi)
-			editWebProjectEntry(cfg, wi, pi)
-		case choice == "add-apt":
-			addAptWatcher(cfg)
-		case choice == "add-dnf":
-			addDnfWatcher(cfg)
-		case choice == "add-pacman":
-			addPacmanWatcher(cfg)
-		case choice == "add-zypper":
-			addZypperWatcher(cfg)
-		case choice == "add-apk":
-			addApkWatcher(cfg)
-		case choice == "add-macos":
-			addMacOSWatcher(cfg)
-		case choice == "add-homebrew":
-			addHomebrewWatcher(cfg)
-		case choice == "add-snap":
-			addSnapWatcher(cfg)
-		case choice == "add-npm":
-			addNpmWatcher(cfg)
-		case choice == "add-flatpak":
-			addFlatpakWatcher(cfg)
-		case choice == "add-docker":
-			addDockerWatcher(cfg)
-		case choice == "add-openclaw":
-			addOpenClawWatcher(cfg)
-		case choice == "add-distro":
-			addDistroWatcher(cfg)
-		case choice == "add-wordpress":
-			addWordPressSite(cfg)
-		case choice == "add-webproject":
-			addWebProject(cfg)
 		}
+	}
+}
+
+// watcherActionMenu shows Edit/Remove options for a single watcher (Level 2).
+func watcherActionMenu(cfg *config.Config, idx int) {
+	w := cfg.Watchers[idx]
+	name := watcherDisplayName(w.Type)
+
+	var options []huh.Option[string]
+	if _, ok := editWatcherFuncs[w.Type]; ok {
+		options = append(options, huh.NewOption("Edit settings", "edit"))
+	}
+	options = append(options,
+		huh.NewOption("Remove", "remove"),
+		huh.NewOption("← Back", "back"),
+	)
+
+	var choice string
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title(name).
+				Options(options...).
+				Value(&choice),
+		),
+	).Run()
+	if err != nil {
+		return
+	}
+
+	switch choice {
+	case "edit":
+		if fn, ok := editWatcherFuncs[w.Type]; ok {
+			fn(cfg, &cfg.Watchers[idx])
+		}
+	case "remove":
+		removeWatcherByIndex(cfg, idx)
+	}
+}
+
+// watcherSitesMenu shows sites/projects for a multi-instance watcher (Level 2b).
+func watcherSitesMenu(cfg *config.Config, watcherIdx int, itemsKey, title, itemLabel string) {
+	for {
+		w := &cfg.Watchers[watcherIdx]
+		items := w.GetMapSlice(itemsKey)
+
+		var options []huh.Option[string]
+		for j, item := range items {
+			itemName, _ := item["name"].(string)
+			itemPath, _ := item["path"].(string)
+			if itemName == "" {
+				itemName = "(unnamed)"
+			}
+			label := fmt.Sprintf("%s (%s)", itemName, itemPath)
+			options = append(options, huh.NewOption(label, fmt.Sprintf("select:%d", j)))
+		}
+		options = append(options,
+			huh.NewOption(fmt.Sprintf("+ Add new %s", itemLabel), "add"),
+			huh.NewOption("← Back", "back"),
+		)
+
+		var choice string
+		err := huh.NewForm(
+			huh.NewGroup(
+				huh.NewSelect[string]().
+					Title(title).
+					Options(options...).
+					Value(&choice),
+			),
+		).Run()
+		if err != nil {
+			return
+		}
+
+		switch {
+		case choice == "back":
+			return
+		case choice == "add":
+			if itemsKey == "sites" {
+				addWordPressSite(cfg)
+			} else {
+				addWebProject(cfg)
+			}
+			// Re-check: watcher index may have changed if this was the first item
+			if watcherIdx >= len(cfg.Watchers) || cfg.Watchers[watcherIdx].Type != w.Type {
+				return
+			}
+		case strings.HasPrefix(choice, "select:"):
+			var itemIdx int
+			fmt.Sscanf(choice, "select:%d", &itemIdx)
+			items = w.GetMapSlice(itemsKey) // refresh
+			if itemIdx >= 0 && itemIdx < len(items) {
+				watcherSiteActionMenu(cfg, watcherIdx, itemIdx, itemsKey, itemLabel)
+				// After action, check if watcher still exists (may have been removed)
+				if watcherIdx >= len(cfg.Watchers) {
+					return
+				}
+			}
+		}
+	}
+}
+
+// watcherSiteActionMenu shows Edit/Remove for a single site/project (Level 3).
+func watcherSiteActionMenu(cfg *config.Config, watcherIdx, itemIdx int, itemsKey, itemLabel string) {
+	w := &cfg.Watchers[watcherIdx]
+	items := w.GetMapSlice(itemsKey)
+	if itemIdx < 0 || itemIdx >= len(items) {
+		return
+	}
+	itemName, _ := items[itemIdx]["name"].(string)
+	if itemName == "" {
+		itemName = "(unnamed)"
+	}
+
+	title := fmt.Sprintf("%s: %s", watcherDisplayName(w.Type), itemName)
+
+	var choice string
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title(title).
+				Options(
+					huh.NewOption("Edit settings", "edit"),
+					huh.NewOption("Remove", "remove"),
+					huh.NewOption("← Back", "back"),
+				).
+				Value(&choice),
+		),
+	).Run()
+	if err != nil {
+		return
+	}
+
+	switch choice {
+	case "edit":
+		if itemsKey == "sites" {
+			editWordPressSite(cfg, watcherIdx, itemIdx)
+		} else {
+			editWebProjectEntry(cfg, watcherIdx, itemIdx)
+		}
+	case "remove":
+		removeSiteByIndex(cfg, watcherIdx, itemIdx, itemsKey, itemLabel)
+	}
+}
+
+// addWatcherMenu shows available watcher types to add (Add submenu).
+func addWatcherMenu(cfg *config.Config) {
+	var options []huh.Option[string]
+
+	if runtime.GOOS == "linux" && isToolAvailable("apt") {
+		options = append(options, huh.NewOption("APT", "add-apt"))
+	}
+	if runtime.GOOS == "linux" && isToolAvailable("dnf") {
+		options = append(options, huh.NewOption("DNF", "add-dnf"))
+	}
+	if runtime.GOOS == "linux" && isToolAvailable("pacman") {
+		options = append(options, huh.NewOption("Pacman", "add-pacman"))
+	}
+	if runtime.GOOS == "linux" && isToolAvailable("zypper") {
+		options = append(options, huh.NewOption("Zypper", "add-zypper"))
+	}
+	if runtime.GOOS == "linux" && isToolAvailable("apk") {
+		options = append(options, huh.NewOption("APK", "add-apk"))
+	}
+	if runtime.GOOS == "darwin" && isToolAvailable("softwareupdate") {
+		options = append(options, huh.NewOption("macOS", "add-macos"))
+	}
+	if isToolAvailable("brew") {
+		options = append(options, huh.NewOption("Homebrew", "add-homebrew"))
+	}
+	if isToolAvailable("snap") {
+		options = append(options, huh.NewOption("Snap", "add-snap"))
+	}
+	if isToolAvailable("npm") {
+		options = append(options, huh.NewOption("npm", "add-npm"))
+	}
+	if isToolAvailable("flatpak") {
+		options = append(options, huh.NewOption("Flatpak", "add-flatpak"))
+	}
+	if isToolAvailable("docker") {
+		options = append(options, huh.NewOption("Docker", "add-docker"))
+	}
+	options = append(options, huh.NewOption("OpenClaw", "add-openclaw"))
+	if runtime.GOOS == "linux" {
+		if _, err := os.Stat("/etc/os-release"); err == nil {
+			options = append(options, huh.NewOption("Distro Release", "add-distro"))
+		}
+	}
+	options = append(options, huh.NewOption("Web Project", "add-webproject"))
+	options = append(options, huh.NewOption("WordPress", "add-wordpress"))
+	options = append(options, huh.NewOption("← Back", "back"))
+
+	var choice string
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Add Watcher").
+				Options(options...).
+				Value(&choice),
+		),
+	).Run()
+	if err != nil {
+		return
+	}
+
+	switch choice {
+	case "add-apt":
+		addAptWatcher(cfg)
+	case "add-dnf":
+		addDnfWatcher(cfg)
+	case "add-pacman":
+		addPacmanWatcher(cfg)
+	case "add-zypper":
+		addZypperWatcher(cfg)
+	case "add-apk":
+		addApkWatcher(cfg)
+	case "add-macos":
+		addMacOSWatcher(cfg)
+	case "add-homebrew":
+		addHomebrewWatcher(cfg)
+	case "add-snap":
+		addSnapWatcher(cfg)
+	case "add-npm":
+		addNpmWatcher(cfg)
+	case "add-flatpak":
+		addFlatpakWatcher(cfg)
+	case "add-docker":
+		addDockerWatcher(cfg)
+	case "add-openclaw":
+		addOpenClawWatcher(cfg)
+	case "add-distro":
+		addDistroWatcher(cfg)
+	case "add-wordpress":
+		addWordPressSite(cfg)
+	case "add-webproject":
+		addWebProject(cfg)
+	}
+}
+
+// removeWatcherByIndex removes a watcher at the given index after confirmation.
+func removeWatcherByIndex(cfg *config.Config, idx int) {
+	name := watcherDisplayName(cfg.Watchers[idx].Type)
+	var confirm bool
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title(fmt.Sprintf("Remove %s watcher?", name)).
+				Value(&confirm),
+		),
+	).Run()
+	if err != nil || !confirm {
+		return
+	}
+	cfg.Watchers = append(cfg.Watchers[:idx], cfg.Watchers[idx+1:]...)
+	fmt.Printf("  %s watcher removed.\n", name)
+}
+
+// removeSiteByIndex removes a site/project at the given index from a multi-instance watcher.
+func removeSiteByIndex(cfg *config.Config, watcherIdx, itemIdx int, itemsKey, itemLabel string) {
+	w := &cfg.Watchers[watcherIdx]
+	items := w.GetMapSlice(itemsKey)
+	if itemIdx < 0 || itemIdx >= len(items) {
+		return
+	}
+
+	itemName, _ := items[itemIdx]["name"].(string)
+	if itemName == "" {
+		itemName = "(unnamed)"
+	}
+
+	var confirm bool
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title(fmt.Sprintf("Remove %s %q?", itemLabel, itemName)).
+				Value(&confirm),
+		),
+	).Run()
+	if err != nil || !confirm {
+		return
+	}
+
+	if len(items) == 1 {
+		// Last item — remove the entire watcher entry.
+		cfg.Watchers = append(cfg.Watchers[:watcherIdx], cfg.Watchers[watcherIdx+1:]...)
+		fmt.Printf("  %s %q removed (watcher removed, no %ss remaining).\n", capitalizeFirst(itemLabel), itemName, itemLabel)
+	} else {
+		remaining := make([]interface{}, 0, len(items)-1)
+		for k, s := range items {
+			if k != itemIdx {
+				remaining = append(remaining, s)
+			}
+		}
+		w.Options[itemsKey] = remaining
+		fmt.Printf("  %s %q removed.\n", capitalizeFirst(itemLabel), itemName)
 	}
 }
 
@@ -1380,200 +1508,43 @@ func addWebProject(cfg *config.Config) {
 	fmt.Println(").")
 }
 
-func removeWatcher(cfg *config.Config) {
-	if len(cfg.Watchers) == 0 {
-		return
-	}
-
-	var options []huh.Option[string]
-	for i, w := range cfg.Watchers {
-		if w.Type == "wordpress" {
-			// Show one option per WordPress site for individual removal.
-			sites := w.GetMapSlice("sites")
-			for j, s := range sites {
-				name, _ := s["name"].(string)
-				path, _ := s["path"].(string)
-				env, _ := s["environment"].(string)
-				if env == "" || env == "auto" {
-					env = "native"
-				}
-				label := fmt.Sprintf("WordPress: %q (%s, env: %s)", name, path, env)
-				value := fmt.Sprintf("wp:%d:%d", i, j)
-				options = append(options, huh.NewOption(label, value))
-			}
-		} else if w.Type == "webproject" {
-			// Show one option per web project for individual removal.
-			projects := w.GetMapSlice("projects")
-			for j, p := range projects {
-				name, _ := p["name"].(string)
-				path, _ := p["path"].(string)
-				env, _ := p["environment"].(string)
-				if env == "" || env == "auto" {
-					env = "native"
-				}
-				label := fmt.Sprintf("Web Project: %q (%s, env: %s)", name, path, env)
-				value := fmt.Sprintf("webproj:%d:%d", i, j)
-				options = append(options, huh.NewOption(label, value))
-			}
-		} else {
-			// Non-WordPress watchers: one option to remove the whole watcher.
-			label := w.Type
-			switch w.Type {
-			case "apt":
-				label = "APT"
-			case "macos":
-				label = "macOS"
-			default:
-				label = strings.ToUpper(label[:1]) + label[1:]
-			}
-			options = append(options, huh.NewOption(label, fmt.Sprintf("idx:%d", i)))
-		}
-	}
-	options = append(options, huh.NewOption("Cancel", "cancel"))
-
-	var choice string
-	err := huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[string]().
-				Title("Which watcher to remove?").
-				Options(options...).
-				Value(&choice),
-		),
-	).Run()
-	if err != nil {
-		return
-	}
-
-	if choice == "cancel" {
-		return
-	}
-
-	if strings.HasPrefix(choice, "wp:") {
-		// WordPress site removal: parse "wp:<watcherIdx>:<siteIdx>"
-		var watcherIdx, siteIdx int
-		fmt.Sscanf(choice, "wp:%d:%d", &watcherIdx, &siteIdx)
-		if watcherIdx < 0 || watcherIdx >= len(cfg.Watchers) {
-			return
-		}
-		w := &cfg.Watchers[watcherIdx]
-		sites := w.GetMapSlice("sites")
-		if siteIdx < 0 || siteIdx >= len(sites) {
-			return
-		}
-
-		removedName, _ := sites[siteIdx]["name"].(string)
-
-		if len(sites) == 1 {
-			// Last site — remove the entire WordPress watcher entry.
-			cfg.Watchers = append(cfg.Watchers[:watcherIdx], cfg.Watchers[watcherIdx+1:]...)
-			fmt.Printf("  WordPress site %q removed (watcher removed, no sites remaining).\n", removedName)
-		} else {
-			// Remove just this site from the sites slice.
-			remaining := make([]interface{}, 0, len(sites)-1)
-			for k, s := range sites {
-				if k != siteIdx {
-					remaining = append(remaining, s)
-				}
-			}
-			w.Options["sites"] = remaining
-			fmt.Printf("  WordPress site %q removed.\n", removedName)
-		}
-	} else if strings.HasPrefix(choice, "webproj:") {
-		// Web project removal: parse "webproj:<watcherIdx>:<projectIdx>"
-		var watcherIdx, projectIdx int
-		fmt.Sscanf(choice, "webproj:%d:%d", &watcherIdx, &projectIdx)
-		if watcherIdx < 0 || watcherIdx >= len(cfg.Watchers) {
-			return
-		}
-		w := &cfg.Watchers[watcherIdx]
-		projects := w.GetMapSlice("projects")
-		if projectIdx < 0 || projectIdx >= len(projects) {
-			return
-		}
-
-		removedName, _ := projects[projectIdx]["name"].(string)
-
-		if len(projects) == 1 {
-			cfg.Watchers = append(cfg.Watchers[:watcherIdx], cfg.Watchers[watcherIdx+1:]...)
-			fmt.Printf("  Web project %q removed (watcher removed, no projects remaining).\n", removedName)
-		} else {
-			remaining := make([]interface{}, 0, len(projects)-1)
-			for k, p := range projects {
-				if k != projectIdx {
-					remaining = append(remaining, p)
-				}
-			}
-			w.Options["projects"] = remaining
-			fmt.Printf("  Web project %q removed.\n", removedName)
-		}
-	} else if strings.HasPrefix(choice, "idx:") {
-		// Non-WordPress/webproject watcher removal: parse "idx:<watcherIdx>"
-		var idx int
-		fmt.Sscanf(choice, "idx:%d", &idx)
-		if idx >= 0 && idx < len(cfg.Watchers) {
-			removed := cfg.Watchers[idx].Type
-			cfg.Watchers = append(cfg.Watchers[:idx], cfg.Watchers[idx+1:]...)
-			fmt.Printf("  %s watcher removed.\n", removed)
-		}
-	}
-}
 
 // --- Notifications sub-menu ---
 
+// notifierSummaryLabel returns a compact label for a notifier in the Level-1 menu.
+func notifierSummaryLabel(n config.NotifierConfig) string {
+	meta, ok := notifier.GetMeta(n.Type)
+	name := n.Type
+	if ok {
+		name = meta.DisplayName
+	}
+	var details []string
+	if !n.Enabled {
+		details = append(details, "disabled")
+	}
+	if n.SendPolicy != "" {
+		details = append(details, n.SendPolicy)
+	}
+	if n.MinPriority != "" {
+		details = append(details, n.MinPriority+"+")
+	}
+	if len(details) > 0 {
+		return fmt.Sprintf("%s (%s)", name, strings.Join(details, ", "))
+	}
+	return name
+}
+
 func manageNotifications(cfg *config.Config) error {
 	for {
-		// Show configured notifiers
-		fmt.Println()
-		fmt.Println("  Configured notifiers:")
-		if len(cfg.Notifiers) == 0 {
-			fmt.Println("    (none)")
-		}
-		for _, n := range cfg.Notifiers {
-			status := "enabled"
-			if !n.Enabled {
-				status = "disabled"
-			}
-			meta, ok := notifier.GetMeta(n.Type)
-			displayName := n.Type
-			if ok {
-				displayName = meta.DisplayName
-			}
-			detail := status
-		if n.SendPolicy != "" {
-			detail += fmt.Sprintf(", policy: %s", n.SendPolicy)
-		}
-		if n.MinPriority != "" {
-			detail += fmt.Sprintf(", min: %s+", n.MinPriority)
-		}
-		fmt.Printf("    [✓] %s (%s)\n", displayName, detail)
-		}
-		fmt.Println()
-
-		// Build menu options
+		// Level 1: List configured notifiers
 		var options []huh.Option[string]
-
-		// Add options for each available notifier type
-		for _, meta := range notifier.AllMeta() {
-			options = append(options, huh.NewOption(
-				fmt.Sprintf("Add %s", meta.DisplayName),
-				"add:"+meta.Type,
-			))
-		}
-
-		// Edit/remove options for configured notifiers
 		for i, n := range cfg.Notifiers {
-			meta, ok := notifier.GetMeta(n.Type)
-			displayName := n.Type
-			if ok {
-				displayName = meta.DisplayName
-			}
-			options = append(options,
-				huh.NewOption(fmt.Sprintf("Edit %s", displayName), fmt.Sprintf("edit:%d", i)),
-				huh.NewOption(fmt.Sprintf("Remove %s", displayName), fmt.Sprintf("remove:%d", i)),
-			)
+			options = append(options, huh.NewOption(notifierSummaryLabel(n), fmt.Sprintf("select:%d", i)))
 		}
-
-		options = append(options, huh.NewOption("Back to main menu", "back"))
+		options = append(options,
+			huh.NewOption("+ Add new notifier", "add"),
+			huh.NewOption("← Back to main menu", "back"),
+		)
 
 		var choice string
 		err := huh.NewForm(
@@ -1588,42 +1559,108 @@ func manageNotifications(cfg *config.Config) error {
 			return nil
 		}
 
-		if choice == "back" {
+		switch {
+		case choice == "back":
 			return nil
-		}
-
-		if strings.HasPrefix(choice, "add:") {
-			notifierType := strings.TrimPrefix(choice, "add:")
-			if fn, ok := addFuncs[notifierType]; ok {
-				if err := fn(cfg); err != nil {
-					return err
-				}
-			}
-		} else if strings.HasPrefix(choice, "edit:") {
+		case choice == "add":
+			addNotifierMenu(cfg)
+		case strings.HasPrefix(choice, "select:"):
 			var idx int
-			fmt.Sscanf(choice, "edit:%d", &idx)
+			fmt.Sscanf(choice, "select:%d", &idx)
 			if idx >= 0 && idx < len(cfg.Notifiers) {
-				n := &cfg.Notifiers[idx]
-				if fn, ok := editFuncs[n.Type]; ok {
-					if err := fn(cfg, n); err != nil {
-						return err
-					}
-				}
-			}
-		} else if strings.HasPrefix(choice, "remove:") {
-			var idx int
-			fmt.Sscanf(choice, "remove:%d", &idx)
-			if idx >= 0 && idx < len(cfg.Notifiers) {
-				meta, ok := notifier.GetMeta(cfg.Notifiers[idx].Type)
-				displayName := cfg.Notifiers[idx].Type
-				if ok {
-					displayName = meta.DisplayName
-				}
-				cfg.Notifiers = append(cfg.Notifiers[:idx], cfg.Notifiers[idx+1:]...)
-				fmt.Printf("  %s notifier removed.\n", displayName)
+				notifierActionMenu(cfg, idx)
 			}
 		}
 	}
+}
+
+// notifierActionMenu shows Edit/Remove options for a single notifier (Level 2).
+func notifierActionMenu(cfg *config.Config, idx int) {
+	meta, ok := notifier.GetMeta(cfg.Notifiers[idx].Type)
+	name := cfg.Notifiers[idx].Type
+	if ok {
+		name = meta.DisplayName
+	}
+
+	var choice string
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title(name).
+				Options(
+					huh.NewOption("Edit settings", "edit"),
+					huh.NewOption("Remove", "remove"),
+					huh.NewOption("← Back", "back"),
+				).
+				Value(&choice),
+		),
+	).Run()
+	if err != nil {
+		return
+	}
+
+	switch choice {
+	case "edit":
+		n := &cfg.Notifiers[idx]
+		if fn, ok := editFuncs[n.Type]; ok {
+			fn(cfg, n)
+		}
+	case "remove":
+		removeNotifierByIndex(cfg, idx)
+	}
+}
+
+// addNotifierMenu shows available notifier types to add.
+func addNotifierMenu(cfg *config.Config) {
+	var options []huh.Option[string]
+	for _, meta := range notifier.AllMeta() {
+		options = append(options, huh.NewOption(meta.DisplayName, "add:"+meta.Type))
+	}
+	options = append(options, huh.NewOption("← Back", "back"))
+
+	var choice string
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title("Add Notifier").
+				Options(options...).
+				Value(&choice),
+		),
+	).Run()
+	if err != nil {
+		return
+	}
+
+	if strings.HasPrefix(choice, "add:") {
+		notifierType := strings.TrimPrefix(choice, "add:")
+		if fn, ok := addFuncs[notifierType]; ok {
+			fn(cfg)
+		}
+	}
+}
+
+// removeNotifierByIndex removes a notifier at the given index after confirmation.
+func removeNotifierByIndex(cfg *config.Config, idx int) {
+	meta, ok := notifier.GetMeta(cfg.Notifiers[idx].Type)
+	name := cfg.Notifiers[idx].Type
+	if ok {
+		name = meta.DisplayName
+	}
+
+	var confirm bool
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewConfirm().
+				Title(fmt.Sprintf("Remove %s notifier?", name)).
+				Value(&confirm),
+		),
+	).Run()
+	if err != nil || !confirm {
+		return
+	}
+
+	cfg.Notifiers = append(cfg.Notifiers[:idx], cfg.Notifiers[idx+1:]...)
+	fmt.Printf("  %s notifier removed.\n", name)
 }
 
 // --- Settings sub-menu ---
