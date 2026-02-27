@@ -1750,45 +1750,32 @@ func manageSettings(cfg *config.Config) error {
 
 // --- Cron sub-menu ---
 
+// cronJobSummaryLabel returns a compact label for a cron job in the Level-1 menu.
+func cronJobSummaryLabel(j cron.InstalledJob) string {
+	return fmt.Sprintf("%s (%s)", cron.JobTypeLabel(j.Type), cron.FormatSchedule(j.Schedule))
+}
+
 func manageCron(cfg *config.Config) error {
 	for {
+		// Level 1: List installed cron jobs
 		jobs := cron.InstalledJobs()
-
-		// Display current jobs
-		fmt.Println()
-		fmt.Println("  Scheduled cron jobs:")
-		if len(jobs) == 0 {
-			fmt.Println("    (none)")
-		}
-		for _, j := range jobs {
-			fmt.Printf("    %s — %s\n", cron.JobTypeLabel(j.Type), cron.FormatSchedule(j.Schedule))
-		}
-		fmt.Println()
-
-		// Build menu options
-		checkInstalled, _ := cron.IsJobInstalled(cron.JobCheck)
-		selfUpdateInstalled, _ := cron.IsJobInstalled(cron.JobSelfUpdate)
-
 		var options []huh.Option[string]
 
+		for _, j := range jobs {
+			options = append(options, huh.NewOption(cronJobSummaryLabel(j), fmt.Sprintf("select:%s", string(j.Type))))
+		}
+
+		// Add options for job types that are not yet installed
+		checkInstalled, _ := cron.IsJobInstalled(cron.JobCheck)
+		selfUpdateInstalled, _ := cron.IsJobInstalled(cron.JobSelfUpdate)
 		if !checkInstalled {
-			options = append(options, huh.NewOption("Add update check schedule", "add-check"))
-		} else {
-			options = append(options, huh.NewOption("Change update check schedule", "edit-check"))
-			options = append(options, huh.NewOption("Remove update check schedule", "remove-check"))
+			options = append(options, huh.NewOption("+ Add update check schedule", "add-check"))
 		}
-
 		if !selfUpdateInstalled {
-			options = append(options, huh.NewOption("Add self-update schedule", "add-self-update"))
-		} else {
-			options = append(options, huh.NewOption("Change self-update schedule", "edit-self-update"))
-			options = append(options, huh.NewOption("Remove self-update schedule", "remove-self-update"))
+			options = append(options, huh.NewOption("+ Add self-update schedule", "add-self-update"))
 		}
 
-		if len(jobs) > 0 {
-			options = append(options, huh.NewOption("Remove all cron jobs", "remove-all"))
-		}
-		options = append(options, huh.NewOption("Back to main menu", "back"))
+		options = append(options, huh.NewOption("← Back to main menu", "back"))
 
 		var choice string
 		err := huh.NewForm(
@@ -1803,34 +1790,51 @@ func manageCron(cfg *config.Config) error {
 			return nil
 		}
 
-		switch choice {
-		case "add-check", "edit-check":
-			installCronJobInteractive(cfg, cron.JobCheck)
-		case "add-self-update", "edit-self-update":
-			installCronJobInteractive(cfg, cron.JobSelfUpdate)
-		case "remove-check":
-			if err := cron.UninstallJob(cron.JobCheck); err != nil {
-				fmt.Printf("  Error: %s\n", err)
-			} else {
-				cfg.RemoveCronJob(config.CronJobCheck)
-				fmt.Println("  Update check cron job removed.")
-			}
-		case "remove-self-update":
-			if err := cron.UninstallJob(cron.JobSelfUpdate); err != nil {
-				fmt.Printf("  Error: %s\n", err)
-			} else {
-				cfg.RemoveCronJob(config.CronJobSelfUpdate)
-				fmt.Println("  Self-update cron job removed.")
-			}
-		case "remove-all":
-			if err := cron.UninstallAll(); err != nil {
-				fmt.Printf("  Error: %s\n", err)
-			} else {
-				cfg.Settings.CronJobs = nil
-				fmt.Println("  All cron jobs removed.")
-			}
-		case "back":
+		switch {
+		case choice == "back":
 			return nil
+		case choice == "add-check":
+			installCronJobInteractive(cfg, cron.JobCheck)
+		case choice == "add-self-update":
+			installCronJobInteractive(cfg, cron.JobSelfUpdate)
+		case strings.HasPrefix(choice, "select:"):
+			jobType := cron.JobType(strings.TrimPrefix(choice, "select:"))
+			cronJobActionMenu(cfg, jobType)
+		}
+	}
+}
+
+// cronJobActionMenu shows Change/Remove options for a single cron job (Level 2).
+func cronJobActionMenu(cfg *config.Config, jobType cron.JobType) {
+	_, schedule := cron.IsJobInstalled(jobType)
+	title := fmt.Sprintf("%s — %s", cron.JobTypeLabel(jobType), cron.FormatSchedule(schedule))
+
+	var choice string
+	err := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[string]().
+				Title(title).
+				Options(
+					huh.NewOption("Change schedule", "edit"),
+					huh.NewOption("Remove", "remove"),
+					huh.NewOption("← Back", "back"),
+				).
+				Value(&choice),
+		),
+	).Run()
+	if err != nil {
+		return
+	}
+
+	switch choice {
+	case "edit":
+		installCronJobInteractive(cfg, jobType)
+	case "remove":
+		if err := cron.UninstallJob(jobType); err != nil {
+			fmt.Printf("  Error: %s\n", err)
+		} else {
+			cfg.RemoveCronJob(config.CronJobType(jobType))
+			fmt.Printf("  %s cron job removed.\n", cron.JobTypeLabel(jobType))
 		}
 	}
 }
