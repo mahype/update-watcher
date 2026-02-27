@@ -2,6 +2,8 @@ package output
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
 
 	"github.com/mahype/update-watcher/config"
 	"github.com/mahype/update-watcher/cron"
@@ -70,8 +72,50 @@ func PrintStatus(cfg *config.Config, cronJobs []cron.InstalledJob) {
 		if n.MinPriority != "" {
 			detail += fmt.Sprintf(", min: %s+", n.MinPriority)
 		}
-		fmt.Printf("    - %-12s %s%s\n", n.Type, status, detail)
+		host := notifierHost(n)
+		if host != "" {
+			fmt.Printf("    - %-12s %-25s %s%s\n", n.Type, host, status, detail)
+		} else {
+			fmt.Printf("    - %-12s %s%s\n", n.Type, status, detail)
+		}
 	}
 
 	fmt.Println()
+}
+
+// notifierHost extracts a host or identifier from the notifier's options
+// so that multiple notifiers of the same type can be distinguished.
+func notifierHost(n config.NotifierConfig) string {
+	switch n.Type {
+	case "slack", "discord", "teams", "googlechat", "mattermost", "rocketchat":
+		return extractHost(n.Options.GetString("webhook_url", ""))
+	case "webhook", "updatewall", "homeassistant":
+		return extractHost(n.Options.GetString("url", ""))
+	case "gotify":
+		return extractHost(n.Options.GetString("server_url", ""))
+	case "ntfy":
+		if h := extractHost(n.Options.GetString("server_url", "")); h != "" {
+			return h
+		}
+		return n.Options.GetString("topic", "")
+	case "matrix":
+		return extractHost(n.Options.GetString("homeserver", ""))
+	case "email":
+		return n.Options.GetString("smtp_host", "")
+	case "telegram":
+		return n.Options.GetString("chat_id", "")
+	}
+	return ""
+}
+
+// extractHost parses a URL and returns its hostname, or empty string on failure.
+func extractHost(rawURL string) string {
+	if rawURL == "" || strings.HasPrefix(rawURL, "${") {
+		return ""
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return u.Hostname()
 }
