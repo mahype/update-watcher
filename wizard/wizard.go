@@ -77,6 +77,9 @@ func sendTestNotification(cfg *config.Config) {
 		if ok {
 			label = meta.DisplayName
 		}
+		if host := output.NotifierHost(n); host != "" {
+			label = fmt.Sprintf("%s — %s", label, host)
+		}
 		options = append(options, huh.NewOption(label, n.Type))
 	}
 
@@ -302,11 +305,14 @@ func buildMainMenuOptions(cfg *config.Config) []huh.Option[string] {
 		var names []string
 		for _, n := range cfg.Notifiers {
 			meta, ok := notifier.GetMeta(n.Type)
+			name := n.Type
 			if ok {
-				names = append(names, meta.DisplayName)
-			} else {
-				names = append(names, n.Type)
+				name = meta.DisplayName
 			}
+			if host := output.NotifierHost(n); host != "" {
+				name = fmt.Sprintf("%s — %s", name, host)
+			}
+			names = append(names, name)
 		}
 		notifLabel += " (" + strings.Join(names, ", ") + ")"
 	}
@@ -420,11 +426,14 @@ func printStatus(cfg *config.Config, updateAvailable *selfupdate.Release) {
 		var names []string
 		for _, n := range cfg.Notifiers {
 			meta, ok := notifier.GetMeta(n.Type)
+			name := n.Type
 			if ok {
-				names = append(names, meta.DisplayName)
-			} else {
-				names = append(names, n.Type)
+				name = meta.DisplayName
 			}
+			if host := output.NotifierHost(n); host != "" {
+				name = fmt.Sprintf("%s — %s", name, host)
+			}
+			names = append(names, name)
 		}
 		fmt.Printf("  Notifications: %s\n", strings.Join(names, ", "))
 	}
@@ -1546,6 +1555,9 @@ func notifierSummaryLabel(n config.NotifierConfig) string {
 	name := n.Type
 	if ok {
 		name = meta.DisplayName
+	}
+	if host := output.NotifierHost(n); host != "" {
+		name = fmt.Sprintf("%s — %s", name, host)
 	}
 	var details []string
 	if !n.Enabled {

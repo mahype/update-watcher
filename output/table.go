@@ -72,7 +72,7 @@ func PrintStatus(cfg *config.Config, cronJobs []cron.InstalledJob) {
 		if n.MinPriority != "" {
 			detail += fmt.Sprintf(", min: %s+", n.MinPriority)
 		}
-		host := notifierHost(n)
+		host := NotifierHost(n)
 		if host != "" {
 			fmt.Printf("    - %-12s %-25s %s%s\n", n.Type, host, status, detail)
 		} else {
@@ -85,21 +85,21 @@ func PrintStatus(cfg *config.Config, cronJobs []cron.InstalledJob) {
 
 // notifierHost extracts a host or identifier from the notifier's options
 // so that multiple notifiers of the same type can be distinguished.
-func notifierHost(n config.NotifierConfig) string {
+func NotifierHost(n config.NotifierConfig) string {
 	switch n.Type {
 	case "slack", "discord", "teams", "googlechat", "mattermost", "rocketchat":
-		return extractHost(n.Options.GetString("webhook_url", ""))
+		return ExtractHost(n.Options.GetString("webhook_url", ""))
 	case "webhook", "updatewall", "homeassistant":
-		return extractHost(n.Options.GetString("url", ""))
+		return ExtractHost(n.Options.GetString("url", ""))
 	case "gotify":
-		return extractHost(n.Options.GetString("server_url", ""))
+		return ExtractHost(n.Options.GetString("server_url", ""))
 	case "ntfy":
-		if h := extractHost(n.Options.GetString("server_url", "")); h != "" {
+		if h := ExtractHost(n.Options.GetString("server_url", "")); h != "" {
 			return h
 		}
 		return n.Options.GetString("topic", "")
 	case "matrix":
-		return extractHost(n.Options.GetString("homeserver", ""))
+		return ExtractHost(n.Options.GetString("homeserver", ""))
 	case "email":
 		return n.Options.GetString("smtp_host", "")
 	case "telegram":
@@ -109,7 +109,7 @@ func notifierHost(n config.NotifierConfig) string {
 }
 
 // extractHost parses a URL and returns its hostname, or empty string on failure.
-func extractHost(rawURL string) string {
+func ExtractHost(rawURL string) string {
 	if rawURL == "" || strings.HasPrefix(rawURL, "${") {
 		return ""
 	}
