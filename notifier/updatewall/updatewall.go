@@ -64,7 +64,6 @@ type checkerEntry struct {
 	Name          string           `json:"name"`
 	Summary       string           `json:"summary"`
 	Error         string           `json:"error,omitempty"`
-	UpdateHint    string           `json:"update_hint,omitempty"`
 	UpdateCommand string           `json:"update_command,omitempty"`
 	Updates       []checker.Update `json:"updates,omitempty"`
 }
@@ -85,7 +84,6 @@ func (u *UpdateWallNotifier) Send(ctx context.Context, hostname string, results 
 			Name:          r.CheckerName,
 			Summary:       r.Summary,
 			Error:         r.Error,
-			UpdateHint:    r.Summary,
 			UpdateCommand: formatting.UpdateCommandForResult(r.CheckerName, r.Updates),
 			Updates:       r.Updates,
 		})
