@@ -2,9 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/mahype/update-watcher/config"
 	"github.com/mahype/update-watcher/cron"
 	"github.com/mahype/update-watcher/internal/rootcheck"
+	"github.com/mahype/update-watcher/internal/sudoers"
 	"github.com/spf13/cobra"
 )
 
@@ -41,8 +44,47 @@ var installCronCmd = &cobra.Command{
 			fmt.Printf("%s cron job installed for daily runs at %s\n", cron.JobTypeLabel(jobType), timeStr)
 		}
 
-		return nil
+		return installSudoers()
 	},
+}
+
+// installSudoers generates /etc/sudoers.d/update-watcher from the current
+// config. Failure to load the config or to write the file is reported but
+// does not fail the install-cron command — the cron job is already in place.
+func installSudoers() error {
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "\nWARN: skipping sudoers generation — config not loadable: %v\n", err)
+		return nil
+	}
+
+	rules, warnings, err := sudoers.Build(cfg)
+	if err != nil {
+		return fmt.Errorf("sudoers: %w", err)
+	}
+	for _, w := range warnings {
+		fmt.Fprintln(os.Stderr, "WARN:", w)
+	}
+	if len(rules) == 0 {
+		return nil
+	}
+
+	if !rootcheck.IsRoot() {
+		fmt.Fprintln(os.Stderr, "\nWARN: not running as root — skipping sudoers file generation.")
+		fmt.Fprintln(os.Stderr, "      Re-run 'update-watcher install-cron' as root to generate "+sudoers.TargetPath+".")
+		return nil
+	}
+
+	if err := sudoers.Write(rules); err != nil {
+		return fmt.Errorf("sudoers: %w", err)
+	}
+
+	fmt.Printf("\nSudoers rules written to %s:\n", sudoers.TargetPath)
+	serviceUser := rootcheck.ServiceUserName()
+	for _, r := range rules {
+		fmt.Println("  " + sudoers.FormatRule(serviceUser, r))
+	}
+	return nil
 }
 
 func init() {

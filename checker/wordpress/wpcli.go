@@ -130,17 +130,53 @@ type ThemeInfo struct {
 	UpdateVer string `json:"update_version"`
 }
 
+// sudoPermissionSignals are substrings that indicate a sudo permission
+// failure (as opposed to wp-cli's own errors). Stderr from executil.Run is
+// embedded into the returned error by Run/RunRaw, so matching err.Error() is
+// sufficient.
+var sudoPermissionSignals = []string{
+	"a password is required",
+	"sudo: a terminal is required",
+	"not allowed to execute",
+	"is not in the sudoers file",
+}
+
+// wrapWPCLIError enriches a wp-cli error with actionable guidance when the
+// underlying failure looks like a missing sudoers rule. Returns err unchanged
+// otherwise.
+func wrapWPCLIError(err error, runAs string) error {
+	if err == nil || runAs == "" {
+		return err
+	}
+	msg := err.Error()
+	for _, sig := range sudoPermissionSignals {
+		if strings.Contains(msg, sig) {
+			return fmt.Errorf(
+				"wp-cli cannot run as %q — missing sudoers rule. "+
+					"Run 'update-watcher install-cron' as root to fix. (original: %w)",
+				runAs, err)
+		}
+	}
+	return err
+}
+
 // CheckCoreUpdates returns available core updates.
 func (w *WPCLIRunner) CheckCoreUpdates() ([]CoreUpdate, string, error) {
 	// Get current version using RunRaw (core version doesn't support --format=json)
 	currentVersion, err := w.RunRaw("core", "version")
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get core version: %w", err)
+		return nil, "", wrapWPCLIError(fmt.Errorf("failed to get core version: %w", err), w.RunAs)
 	}
 
 	output, err := w.Run("core", "check-update")
 	if err != nil {
-		return nil, currentVersion, nil // No updates available is not an error
+		// wp core check-update exits non-zero when no updates are available.
+		// Distinguish that benign case from real errors (sudo, wp not found,
+		// site broken) by inspecting stderr embedded in err.
+		if isNoUpdatesError(err) {
+			return nil, currentVersion, nil
+		}
+		return nil, currentVersion, wrapWPCLIError(err, w.RunAs)
 	}
 
 	var updates []CoreUpdate
@@ -151,11 +187,24 @@ func (w *WPCLIRunner) CheckCoreUpdates() ([]CoreUpdate, string, error) {
 	return updates, currentVersion, nil
 }
 
+// isNoUpdatesError matches wp-cli's "Success: WordPress is at the latest
+// version" / empty-result conditions where exit code is non-zero but no
+// actual failure occurred. Conservative: only return true when we explicitly
+// see a known benign marker.
+func isNoUpdatesError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "WordPress is at the latest version") ||
+		strings.Contains(msg, "Success: WordPress is at the latest")
+}
+
 // CheckPluginUpdates returns plugins with available updates.
 func (w *WPCLIRunner) CheckPluginUpdates() ([]PluginInfo, error) {
 	output, err := w.Run("plugin", "list", "--update=available")
 	if err != nil {
-		return nil, err
+		return nil, wrapWPCLIError(err, w.RunAs)
 	}
 
 	var plugins []PluginInfo
@@ -170,7 +219,7 @@ func (w *WPCLIRunner) CheckPluginUpdates() ([]PluginInfo, error) {
 func (w *WPCLIRunner) CheckThemeUpdates() ([]ThemeInfo, error) {
 	output, err := w.Run("theme", "list", "--update=available")
 	if err != nil {
-		return nil, err
+		return nil, wrapWPCLIError(err, w.RunAs)
 	}
 
 	var themes []ThemeInfo
