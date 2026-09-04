@@ -89,6 +89,11 @@ func (w *WordPressChecker) Check(ctx context.Context) (*checker.CheckResult, err
 	}
 
 	var allErrors []string
+	failedSites := map[string]bool{}
+	fail := func(site SiteConfig, what string, err error) {
+		allErrors = append(allErrors, fmt.Sprintf("%s %s: %s", site.Name, what, err))
+		failedSites[site.Name] = true
+	}
 
 	for _, site := range w.sites {
 		slog.Info("checking WordPress site",
@@ -109,7 +114,7 @@ func (w *WordPressChecker) Check(ctx context.Context) (*checker.CheckResult, err
 		if w.checkCore {
 			updates, currentVersion, err := cli.CheckCoreUpdates()
 			if err != nil {
-				allErrors = append(allErrors, fmt.Sprintf("%s core: %s", site.Name, err))
+				fail(site, "core", err)
 			} else {
 				for _, u := range updates {
 					priority := checker.PriorityNormal
@@ -132,7 +137,7 @@ func (w *WordPressChecker) Check(ctx context.Context) (*checker.CheckResult, err
 		if w.checkPlugins {
 			plugins, err := cli.CheckPluginUpdates()
 			if err != nil {
-				allErrors = append(allErrors, fmt.Sprintf("%s plugins: %s", site.Name, err))
+				fail(site, "plugins", err)
 			} else {
 				for _, p := range plugins {
 					result.Updates = append(result.Updates, checker.Update{
@@ -150,7 +155,7 @@ func (w *WordPressChecker) Check(ctx context.Context) (*checker.CheckResult, err
 		if w.checkThemes {
 			themes, err := cli.CheckThemeUpdates()
 			if err != nil {
-				allErrors = append(allErrors, fmt.Sprintf("%s themes: %s", site.Name, err))
+				fail(site, "themes", err)
 			} else {
 				for _, t := range themes {
 					result.Updates = append(result.Updates, checker.Update{
@@ -170,11 +175,26 @@ func (w *WordPressChecker) Check(ctx context.Context) (*checker.CheckResult, err
 		result.Error = strings.Join(allErrors, "; ")
 	}
 
-	if len(result.Updates) == 0 {
-		result.Summary = "all sites are up to date"
-	} else {
-		result.Summary = fmt.Sprintf("%d updates across %d sites", len(result.Updates), len(w.sites))
-	}
+	result.Summary = buildSummary(len(result.Updates), len(w.sites), len(failedSites))
 
 	return result, nil
+}
+
+// buildSummary describes the outcome without hiding failed checks: a site whose
+// wp-cli calls failed must not be reported as "up to date".
+func buildSummary(updates, sites, failedSites int) string {
+	switch {
+	case failedSites > 0 && failedSites >= sites:
+		return fmt.Sprintf("check failed for all %d sites", sites)
+	case failedSites > 0 && updates == 0:
+		return fmt.Sprintf("%d of %d sites up to date, check failed for %d",
+			sites-failedSites, sites, failedSites)
+	case failedSites > 0:
+		return fmt.Sprintf("%d updates across %d sites, check failed for %d",
+			updates, sites, failedSites)
+	case updates == 0:
+		return "all sites are up to date"
+	default:
+		return fmt.Sprintf("%d updates across %d sites", updates, sites)
+	}
 }
