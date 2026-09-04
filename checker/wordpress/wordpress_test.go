@@ -45,3 +45,26 @@ func TestParseSites(t *testing.T) {
 		t.Errorf("expected empty run_as, got %q", sites[1].RunAs)
 	}
 }
+
+func TestBuildSummary(t *testing.T) {
+	tests := []struct {
+		name                   string
+		updates, sites, failed int
+		want                   string
+	}{
+		{"no updates, no errors", 0, 2, 0, "all sites are up to date"},
+		{"updates, no errors", 3, 2, 0, "3 updates across 2 sites"},
+		{"all sites failed", 0, 1, 1, "check failed for all 1 sites"},
+		{"all of several sites failed", 0, 4, 4, "check failed for all 4 sites"},
+		{"some failed, no updates", 0, 4, 1, "3 of 4 sites up to date, check failed for 1"},
+		{"some failed, with updates", 5, 4, 2, "5 updates across 4 sites, check failed for 2"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := buildSummary(tt.updates, tt.sites, tt.failed); got != tt.want {
+				t.Errorf("buildSummary(%d, %d, %d) = %q, want %q",
+					tt.updates, tt.sites, tt.failed, got, tt.want)
+			}
+		})
+	}
+}

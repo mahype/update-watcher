@@ -103,6 +103,7 @@ func (w *WebProjectChecker) Check(ctx context.Context) (*checker.CheckResult, er
 	}
 
 	var allErrors []string
+	failedProjects := map[string]bool{}
 
 	for _, project := range w.projects {
 		slog.Info("checking web project",
@@ -117,6 +118,7 @@ func (w *WebProjectChecker) Check(ctx context.Context) (*checker.CheckResult, er
 				} else {
 					allErrors = append(allErrors,
 						fmt.Sprintf("%s: unknown package manager %q", project.Name, name))
+					failedProjects[project.Name] = true
 				}
 			}
 		} else {
@@ -126,6 +128,7 @@ func (w *WebProjectChecker) Check(ctx context.Context) (*checker.CheckResult, er
 		if len(managers) == 0 {
 			allErrors = append(allErrors,
 				fmt.Sprintf("%s: no supported package managers detected", project.Name))
+			failedProjects[project.Name] = true
 			continue
 		}
 
@@ -138,6 +141,7 @@ func (w *WebProjectChecker) Check(ctx context.Context) (*checker.CheckResult, er
 			if err != nil {
 				allErrors = append(allErrors,
 					fmt.Sprintf("%s/%s: %s", project.Name, mgr.Name(), err))
+				failedProjects[project.Name] = true
 				continue
 			}
 			result.Updates = append(result.Updates, updates...)
@@ -161,23 +165,13 @@ func (w *WebProjectChecker) Check(ctx context.Context) (*checker.CheckResult, er
 		result.Error = strings.Join(allErrors, "; ")
 	}
 
-	if len(result.Updates) == 0 {
-		result.Summary = "all projects are up to date"
-	} else {
-		secCount := 0
-		for _, u := range result.Updates {
-			if u.Type == checker.UpdateTypeSecurity {
-				secCount++
-			}
-		}
-		if secCount > 0 {
-			result.Summary = fmt.Sprintf("%d outdated packages (%d security) across %d projects",
-				len(result.Updates), secCount, len(w.projects))
-		} else {
-			result.Summary = fmt.Sprintf("%d outdated packages across %d projects",
-				len(result.Updates), len(w.projects))
+	secCount := 0
+	for _, u := range result.Updates {
+		if u.Type == checker.UpdateTypeSecurity {
+			secCount++
 		}
 	}
+	result.Summary = buildSummary(len(result.Updates), secCount, len(w.projects), len(failedProjects))
 
 	return result, nil
 }
@@ -221,4 +215,33 @@ func mergeAuditResults(existing []checker.Update, audit []checker.Update, projec
 	}
 
 	return existing
+}
+
+// buildSummary describes the outcome without hiding failed checks: a project whose
+// package manager calls failed must not be reported as "up to date".
+func buildSummary(updates, security, projects, failedProjects int) string {
+	var base string
+	switch {
+	case updates == 0:
+		base = ""
+	case security > 0:
+		base = fmt.Sprintf("%d outdated packages (%d security) across %d projects",
+			updates, security, projects)
+	default:
+		base = fmt.Sprintf("%d outdated packages across %d projects", updates, projects)
+	}
+
+	switch {
+	case failedProjects > 0 && failedProjects >= projects:
+		return fmt.Sprintf("check failed for all %d projects", projects)
+	case failedProjects > 0 && updates == 0:
+		return fmt.Sprintf("%d of %d projects up to date, check failed for %d",
+			projects-failedProjects, projects, failedProjects)
+	case failedProjects > 0:
+		return fmt.Sprintf("%s, check failed for %d", base, failedProjects)
+	case updates == 0:
+		return "all projects are up to date"
+	default:
+		return base
+	}
 }
